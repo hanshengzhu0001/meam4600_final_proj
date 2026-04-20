@@ -47,7 +47,7 @@ class PosteriorProjectionPipeline:
         checkpoint_path: str | Path,
         device: torch.device | None = None,
     ) -> "PosteriorProjectionPipeline":
-        checkpoint = torch.load(checkpoint_path, map_location=device or "cpu")
+        checkpoint = torch.load(checkpoint_path, map_location=device or "cpu", weights_only=False)
         if "config_dict" in checkpoint:
             config = load_config_dict(checkpoint["config_dict"])
         else:

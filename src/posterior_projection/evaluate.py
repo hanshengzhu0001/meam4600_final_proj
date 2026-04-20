@@ -26,13 +26,30 @@ def evaluate(
     csv_out: str | None = None,
     num_samples: int | None = None,
     num_observation_seeds: int | None = None,
+    device: str | None = None,
+    observation_guidance_strength: float | None = None,
+    num_steps: int | None = None,
+    final_cleanup_iterations: int | None = None,
+    final_cleanup: bool | None = None,
 ) -> list[dict[str, float | str]]:
-    pipeline = PosteriorProjectionPipeline.from_checkpoint(checkpoint_path)
+    if device is None:
+        device_obj = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    else:
+        device_obj = torch.device(device)
+    pipeline = PosteriorProjectionPipeline.from_checkpoint(checkpoint_path, device=device_obj)
     config = pipeline.config
     if num_samples is not None:
         config.evaluation.num_eval_samples = num_samples
     if num_observation_seeds is not None:
         config.evaluation.num_observation_seeds = num_observation_seeds
+    if observation_guidance_strength is not None:
+        config.sampling.observation_guidance_strength = observation_guidance_strength
+    if num_steps is not None:
+        config.sampling.num_steps = num_steps
+    if final_cleanup_iterations is not None:
+        config.projection.final_cleanup_iterations = final_cleanup_iterations
+    if final_cleanup is not None:
+        config.projection.final_cleanup = final_cleanup
     dataset = JointStateDataset(
         config.problem.reference_dataset_path,
         split="val",
@@ -142,6 +159,11 @@ def main() -> None:
     parser.add_argument("--csv-out", default="outputs/posterior_projection/eval_summary.csv")
     parser.add_argument("--num-samples", type=int, default=None)
     parser.add_argument("--num-observation-seeds", type=int, default=None)
+    parser.add_argument("--device", default=None, help="cuda, cpu, or cuda:N")
+    parser.add_argument("--observation-guidance-strength", type=float, default=None)
+    parser.add_argument("--num-steps", type=int, default=None)
+    parser.add_argument("--final-cleanup-iterations", type=int, default=None)
+    parser.add_argument("--no-final-cleanup", dest="final_cleanup", action="store_false", default=None)
     args = parser.parse_args()
 
     rows = evaluate(
@@ -150,6 +172,11 @@ def main() -> None:
         csv_out=args.csv_out,
         num_samples=args.num_samples,
         num_observation_seeds=args.num_observation_seeds,
+        device=args.device,
+        observation_guidance_strength=args.observation_guidance_strength,
+        num_steps=args.num_steps,
+        final_cleanup_iterations=args.final_cleanup_iterations,
+        final_cleanup=args.final_cleanup,
     )
     for row in rows:
         print(json.dumps(row))

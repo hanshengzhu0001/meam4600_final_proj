@@ -4,6 +4,8 @@ import argparse
 import json
 from pathlib import Path
 
+import torch
+
 from .dataset import JointStateDataset
 from .pipeline import PosteriorProjectionPipeline
 
@@ -18,9 +20,26 @@ def main() -> None:
     parser.add_argument("--sample-seed", type=int, default=123)
     parser.add_argument("--json-out", default=None)
     parser.add_argument("--npz-out", default=None)
+    parser.add_argument("--device", default=None, help="cuda, cpu, or cuda:N")
+    parser.add_argument("--observation-guidance-strength", type=float, default=None)
+    parser.add_argument("--num-steps", type=int, default=None)
+    parser.add_argument("--final-cleanup-iterations", type=int, default=None)
+    parser.add_argument("--no-final-cleanup", dest="final_cleanup", action="store_false", default=None)
     args = parser.parse_args()
 
-    pipeline = PosteriorProjectionPipeline.from_checkpoint(args.checkpoint)
+    if args.device is None:
+        device_obj = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    else:
+        device_obj = torch.device(args.device)
+    pipeline = PosteriorProjectionPipeline.from_checkpoint(args.checkpoint, device=device_obj)
+    if args.observation_guidance_strength is not None:
+        pipeline.config.sampling.observation_guidance_strength = args.observation_guidance_strength
+    if args.num_steps is not None:
+        pipeline.config.sampling.num_steps = args.num_steps
+    if args.final_cleanup_iterations is not None:
+        pipeline.config.projection.final_cleanup_iterations = args.final_cleanup_iterations
+    if args.final_cleanup is not None:
+        pipeline.config.projection.final_cleanup = args.final_cleanup
     dataset = JointStateDataset(
         pipeline.config.problem.reference_dataset_path,
         split=args.split,
