@@ -52,6 +52,20 @@ Medium `32 x 2` guidance sweep extensions:
 
 Note: `outputs/` is gitignored, so these artifacts are local cluster outputs by design.
 
+### Metric coverage update (2026-04-22)
+
+The evaluation pipeline now reports distribution-level metrics for each schedule/order row:
+- `mmse`: mean-squared error between generated vs reference sample means (state-space, joint `[u; v]`)
+- `smse`: mean-squared error between generated vs reference sample standard deviations
+- `fpd`: Fr\'echet-style distance between generated vs reference state distributions
+
+Constraint-error fields are now explicitly separated:
+- `ce_ic`: initial-condition constraint error
+- `ce_bc`: boundary-condition constraint error
+- `ce_cl`: conservation-law / governing-equation constraint error
+
+For non-applicable constraints (for example `ce_ic` on this static elliptic benchmark), the pipeline emits `NaN`; report tables should render these as `N/A`.
+
 ## 3. Objective Winners (Full Study)
 
 Compared full runs:
@@ -316,9 +330,48 @@ Generated figure assets and data backing that deck:
 - `reports/figures/guidance_trend_best_u.png`
 - `reports/figures/runtime_uerror_tradeoff.png`
 - `reports/figures/g16_schedule_tradeoff.png`
+- `reports/figures/g16_uerror_physics_tradeoff.png`
+- `reports/figures/g16_projection_overhead.png`
 
 These slides report:
 - PDE/problem setup and discrete operator definitions.
 - Exact implemented metric equations (`posterior_quality`, `physical_consistency`, `runtime`, `trajectory_stability`).
 - Full-table winners and objective-specific schedule/order tradeoffs.
 - Quantitative baseline vs `g=10` vs `g=16` inverse-recovery comparison.
+
+## 9. Algorithm-to-Parameter Mapping (Clarified)
+
+To avoid ambiguity, the study now explicitly maps method design variables to implementation controls:
+
+- `S` (projection schedule) maps to `projection.schedules` and `study.should_project(...)`.
+- `q` (projection order) maps to `order in {first_order, gauss_newton}` and `projection.py`.
+- Observation conditioning strength maps to `sampling.observation_guidance_strength`.
+- Trajectory discretization depth maps to `sampling.num_steps`.
+- End-of-trajectory hard-constraint refinement maps to `projection.final_cleanup*`.
+- Prior capacity maps to `model.hidden_channels`, `model.num_fno_layers`, `model.modes`.
+- Training strength maps to `training.epochs`, `training.batch_size`.
+
+This mapping is now reflected in both the slide deck and this summary to connect each result directly to its causal knob.
+
+## 10. Expected vs Actual (From Proposal/Papers to This Benchmark)
+
+Expectations from proposal references:
+
+- DiffusionPDE suggests stronger physics/observation guidance should improve inverse recovery.
+- PCFM suggests intermediate corrections can improve quality versus final-only correction.
+- PCFM also warns very aggressive per-step projection can over-constrain trajectories.
+- PCFM runtime note suggests final projection can be a small runtime share.
+
+Observed in this project:
+
+- Stronger guidance and stronger prior materially improved inverse recovery (`u_error`, `v_error`, `obs_error`, `posterior_quality`).
+- Intermediate first-order projection (`every_step / first_order`) gave the best `u_error`.
+- Gauss-Newton usually improved physical consistency but not `u_error`, with noticeable runtime cost.
+- Final-only projection had low trajectory distortion but weaker inverse recovery.
+- Final-step-only projection overhead was near the small-overhead expectation; frequent second-order projection had substantially larger overhead.
+
+## 11. Important Metric Caveats (for correct interpretation)
+
+- `trajectory_stability` is measured as deviation from the `none/none` baseline trajectory; therefore `none/none` is always exactly `0` by definition.
+- `physical_consistency` is ranked on **pre-cleanup** states. Final cleanup can make `post_ce` tiny without changing the pre-cleanup ranking.
+- `posterior_quality` combines relative errors and observation fit; it does not directly include residual norm. Therefore, best posterior-quality and best physical-consistency rows can differ.

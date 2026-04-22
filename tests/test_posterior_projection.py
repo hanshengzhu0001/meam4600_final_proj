@@ -10,6 +10,7 @@ from chonkdiff.config import ExperimentConfig as BackendConfig
 from chonkdiff.dataset import generate_oracle_dataset
 from posterior_projection.config import ExperimentConfig
 from posterior_projection.dataset import JointStateDataset, sample_observation_mask
+from posterior_projection.evaluate import evaluate
 from posterior_projection.flow import euler_sample, flow_matching_loss
 from posterior_projection.model import FlowMatchingFNO1D
 from posterior_projection.pipeline import PosteriorProjectionPipeline
@@ -88,6 +89,15 @@ class PosteriorProjectionProblemTests(unittest.TestCase):
         first_residual = float(self.problem.residual_norm_from_state(first.state).item())
         second_residual = float(self.problem.residual_norm_from_state(second.state).item())
         self.assertLessEqual(second_residual, first_residual + 1.0e-8)
+
+    def test_constraint_error_terms_for_elliptic_family(self) -> None:
+        ce_ic = float(self.problem.ce_ic_from_state(self.state).item())
+        ce_bc = float(self.problem.ce_bc_from_state(self.state).item())
+        ce_cl = float(self.problem.ce_cl_from_state(self.state).item())
+        residual = float(self.problem.residual_norm_from_state(self.state).item())
+        self.assertTrue(torch.isnan(torch.tensor(ce_ic)))
+        self.assertAlmostEqual(ce_bc, 0.0, places=12)
+        self.assertAlmostEqual(ce_cl, residual, places=12)
 
 
 class PosteriorProjectionScheduleTests(unittest.TestCase):
@@ -185,6 +195,20 @@ class PosteriorProjectionSmokeTests(unittest.TestCase):
             self.assertGreaterEqual(output.projection_calls, 1)
             self.assertEqual(output.trajectory.shape[0], config.sampling.num_steps + 1)
             self.assertEqual(tuple(output.pre_cleanup_state_phys.shape), (2, 63))
+
+            rows = evaluate(
+                str(checkpoint),
+                num_samples=1,
+                num_observation_seeds=1,
+                final_cleanup=True,
+            )
+            self.assertGreater(len(rows), 0)
+            self.assertIn("ce_ic", rows[0])
+            self.assertIn("ce_bc", rows[0])
+            self.assertIn("ce_cl", rows[0])
+            self.assertIn("mmse", rows[0])
+            self.assertIn("smse", rows[0])
+            self.assertIn("fpd", rows[0])
 
 
 if __name__ == "__main__":

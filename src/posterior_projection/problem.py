@@ -54,6 +54,32 @@ class JointPosteriorProblem:
         residual = self.residual_from_state(state)
         return torch.linalg.vector_norm(residual, dim=-1)
 
+    def ce_ic_from_state(self, state: torch.Tensor) -> torch.Tensor:
+        """Initial-condition constraint error.
+
+        The nonlinear elliptic benchmark is static (no time axis), so IC
+        constraints are not applicable. We return NaN to mark this explicitly.
+        """
+        return torch.full((), float("nan"), dtype=state.dtype, device=state.device)
+
+    def ce_bc_from_state(self, state: torch.Tensor) -> torch.Tensor:
+        """Boundary-condition constraint error."""
+        _, v = self.split_state(state)
+        if self.config.family == "nonlinear_elliptic":
+            value = self.benchmark.periodic_bc_violation(v)
+            return value.to(dtype=state.dtype, device=state.device)
+        return torch.full((), float("nan"), dtype=state.dtype, device=state.device)
+
+    def ce_cl_from_state(self, state: torch.Tensor) -> torch.Tensor:
+        """Conservation-law/constraint error.
+
+        For this benchmark, the governing elliptic PDE residual is the primary
+        hard physical law, so CE_CL is reported using the residual norm.
+        """
+        if self.config.family == "nonlinear_elliptic":
+            return self.residual_norm_from_state(state)
+        return torch.full((), float("nan"), dtype=state.dtype, device=state.device)
+
     def observation_loss(
         self,
         state: torch.Tensor,
