@@ -302,3 +302,23 @@ PYTHONPATH=src .venv/bin/python -u -m posterior_projection.evaluate \
 
 GPU note:
 - One earlier test run failed with CUDA OOM due shared-cluster occupancy; CPU-forced test run passed.
+
+## 8. Presentation Artifacts (LaTeX + Figures)
+
+Prepared a slide-ready LaTeX summary with exact metric definitions and the final study implications:
+
+- `reports/final_projection_study_presentation.tex`
+
+Generated figure assets and data backing that deck:
+
+- `reports/build_presentation_assets.py`
+- `reports/presentation_data.json`
+- `reports/figures/guidance_trend_best_u.png`
+- `reports/figures/runtime_uerror_tradeoff.png`
+- `reports/figures/g16_schedule_tradeoff.png`
+
+These slides report:
+- PDE/problem setup and discrete operator definitions.
+- Exact implemented metric equations (`posterior_quality`, `physical_consistency`, `runtime`, `trajectory_stability`).
+- Full-table winners and objective-specific schedule/order tradeoffs.
+- Quantitative baseline vs `g=10` vs `g=16` inverse-recovery comparison.
