@@ -116,6 +116,7 @@ def evaluate(
     dataset = JointStateDataset(
         config.problem.reference_dataset_path,
         split="val",
+        family=config.problem.family,
         observed_fraction=config.posterior.observed_fraction,
         observation_noise_std=config.posterior.observation_noise_std,
         observation_pattern=config.posterior.observation_pattern,

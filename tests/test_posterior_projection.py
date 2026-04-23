@@ -37,11 +37,20 @@ DATASET_PATH = ensure_test_dataset()
 
 class PosteriorProjectionDatasetTests(unittest.TestCase):
     def test_joint_state_dataset_shapes(self) -> None:
-        dataset = JointStateDataset(DATASET_PATH, split="train", max_samples=2)
+        dataset = JointStateDataset(
+            DATASET_PATH,
+            split="train",
+            family="nonlinear_elliptic",
+            max_samples=2,
+        )
         sample = dataset[0]
         self.assertEqual(tuple(sample["state"].shape), (2, 63))
         self.assertEqual(tuple(sample["obs_mask"].shape), (63,))
         self.assertEqual(tuple(sample["obs_v"].shape), (63,))
+
+    def test_unknown_family_raises(self) -> None:
+        with self.assertRaisesRegex(ValueError, "unsupported PDE family"):
+            JointStateDataset(DATASET_PATH, split="train", family="unknown_family")
 
     def test_observation_mask_is_reproducible(self) -> None:
         mask_a = sample_observation_mask(63, 0.1, seed=11)
@@ -53,10 +62,22 @@ class PosteriorProjectionDatasetTests(unittest.TestCase):
 
 class PosteriorProjectionProblemTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.problem = JointPosteriorProblem(ExperimentConfig().problem)
-        self.dataset = JointStateDataset(DATASET_PATH, split="train", max_samples=1)
+        config = ExperimentConfig()
+        self.problem = JointPosteriorProblem(config.problem)
+        self.dataset = JointStateDataset(
+            DATASET_PATH,
+            split="train",
+            family=config.problem.family,
+            max_samples=1,
+        )
         sample = self.dataset[0]
         self.state = self.dataset.stats.denormalize_state(sample["state"]).to(torch.float64)
+
+    def test_unknown_family_raises(self) -> None:
+        config = ExperimentConfig()
+        config.problem.family = "unknown_family"
+        with self.assertRaisesRegex(ValueError, "unsupported PDE family"):
+            JointPosteriorProblem(config.problem)
 
     def test_joint_jacobian_matches_finite_difference(self) -> None:
         eps = 1.0e-6
@@ -178,6 +199,7 @@ class PosteriorProjectionSmokeTests(unittest.TestCase):
             dataset = JointStateDataset(
                 DATASET_PATH,
                 split="val",
+                family=config.problem.family,
                 observed_fraction=config.posterior.observed_fraction,
                 observation_noise_std=config.posterior.observation_noise_std,
                 observation_pattern=config.posterior.observation_pattern,

@@ -43,6 +43,7 @@ def main() -> None:
     dataset = JointStateDataset(
         pipeline.config.problem.reference_dataset_path,
         split=args.split,
+        family=pipeline.config.problem.family,
         observed_fraction=pipeline.config.posterior.observed_fraction,
         observation_noise_std=pipeline.config.posterior.observation_noise_std,
         observation_pattern=pipeline.config.posterior.observation_pattern,

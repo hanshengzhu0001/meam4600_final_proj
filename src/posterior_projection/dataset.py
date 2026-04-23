@@ -7,6 +7,8 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
+from .families import get_dataset_spec, resolve_split_key
+
 
 @dataclass(slots=True)
 class JointNormalizationStats:
@@ -89,6 +91,7 @@ class JointStateDataset(Dataset):
         self,
         dataset_path: str | Path,
         split: str = "train",
+        family: str = "nonlinear_elliptic",
         observed_fraction: float = 0.1,
         observation_noise_std: float = 0.0,
         observation_pattern: str = "random_mask",
@@ -96,15 +99,17 @@ class JointStateDataset(Dataset):
         max_samples: int | None = None,
     ) -> None:
         data = np.load(dataset_path)
-        u_all = torch.from_numpy(data[f"{split}_u"]).float()
-        v_all = torch.from_numpy(data[f"{split}_v"]).float()
+        spec = get_dataset_spec(family)
+        u_all = torch.from_numpy(data[resolve_split_key(spec.u_key, split)]).float()
+        v_all = torch.from_numpy(data[resolve_split_key(spec.v_key, split)]).float()
         if max_samples is not None:
             u_all = u_all[:max_samples]
             v_all = v_all[:max_samples]
         self.u_phys = u_all
         self.v_phys = v_all
-        self.x_grid = torch.from_numpy(data["x"]).float()
+        self.x_grid = torch.from_numpy(data[spec.x_key]).float()
         self.stats = JointNormalizationStats.from_npz(data)
+        self.family = family
         self.observed_fraction = observed_fraction
         self.observation_noise_std = observation_noise_std
         self.observation_pattern = observation_pattern

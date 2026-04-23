@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import torch
 
-from chonkdiff.benchmark import NonlinearElliptic1D
-from chonkdiff.config import BenchmarkConfig, ForcingConfig
-
 from .config import ProblemConfig
+from .families import JointProblemBackend, build_problem_backend
 
 
 class JointPosteriorProblem:
-    """Joint (u, v) posterior problem wrapper for the elliptic benchmark."""
+    """Joint (u, v) posterior problem wrapper with family-specific backends."""
 
     def __init__(
         self,
@@ -17,25 +15,15 @@ class JointPosteriorProblem:
         device: torch.device | None = None,
         dtype: torch.dtype = torch.float64,
     ) -> None:
-        benchmark_config = BenchmarkConfig(
-            nx=config.nx,
-            domain_length=config.domain_length,
-            kappa=config.kappa,
-            forcing=ForcingConfig(
-                period_length=config.forcing_period_length,
-                lengthscale=config.forcing_lengthscale,
-                jitter=config.forcing_jitter,
-            ),
-        )
         self.config = config
         self.device = device or torch.device("cpu")
         self.dtype = dtype
-        self.benchmark = NonlinearElliptic1D(
-            benchmark_config,
+        self.backend: JointProblemBackend = build_problem_backend(
+            config=config,
             device=self.device,
             dtype=dtype,
         )
-        self.nx = config.nx
+        self.nx = self.backend.nx
 
     def split_state(self, state: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         return state[..., 0, :], state[..., 1, :]
@@ -44,7 +32,7 @@ class JointPosteriorProblem:
         return torch.stack([u, v], dim=-2)
 
     def residual(self, u: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
-        return self.benchmark.residual(u, v)
+        return self.backend.residual(u, v)
 
     def residual_from_state(self, state: torch.Tensor) -> torch.Tensor:
         u, v = self.split_state(state)
@@ -55,30 +43,13 @@ class JointPosteriorProblem:
         return torch.linalg.vector_norm(residual, dim=-1)
 
     def ce_ic_from_state(self, state: torch.Tensor) -> torch.Tensor:
-        """Initial-condition constraint error.
-
-        The nonlinear elliptic benchmark is static (no time axis), so IC
-        constraints are not applicable. We return NaN to mark this explicitly.
-        """
-        return torch.full((), float("nan"), dtype=state.dtype, device=state.device)
+        return self.backend.ce_ic_from_state(state)
 
     def ce_bc_from_state(self, state: torch.Tensor) -> torch.Tensor:
-        """Boundary-condition constraint error."""
-        _, v = self.split_state(state)
-        if self.config.family == "nonlinear_elliptic":
-            value = self.benchmark.periodic_bc_violation(v)
-            return value.to(dtype=state.dtype, device=state.device)
-        return torch.full((), float("nan"), dtype=state.dtype, device=state.device)
+        return self.backend.ce_bc_from_state(state)
 
     def ce_cl_from_state(self, state: torch.Tensor) -> torch.Tensor:
-        """Conservation-law/constraint error.
-
-        For this benchmark, the governing elliptic PDE residual is the primary
-        hard physical law, so CE_CL is reported using the residual norm.
-        """
-        if self.config.family == "nonlinear_elliptic":
-            return self.residual_norm_from_state(state)
-        return torch.full((), float("nan"), dtype=state.dtype, device=state.device)
+        return self.backend.ce_cl_from_state(state)
 
     def observation_loss(
         self,
@@ -91,7 +62,7 @@ class JointPosteriorProblem:
         return ((obs_mask * (v - obs_v)) ** 2).sum(dim=-1) / normalizer
 
     def joint_jacobian(self, u: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
-        jacobian_v = self.benchmark.jacobian_matrix(v)
+        jacobian_v = self.backend.jacobian_v(v)
         if v.ndim == 1:
             neg_identity = -torch.eye(self.nx, dtype=v.dtype, device=v.device)
             return torch.cat([neg_identity, jacobian_v], dim=-1)
