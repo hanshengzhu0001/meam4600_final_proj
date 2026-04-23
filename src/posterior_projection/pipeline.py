@@ -47,7 +47,10 @@ class PosteriorProjectionPipeline:
         checkpoint_path: str | Path,
         device: torch.device | None = None,
     ) -> "PosteriorProjectionPipeline":
-        checkpoint = torch.load(checkpoint_path, map_location=device or "cpu", weights_only=False)
+        # Always deserialize on CPU first so checkpoint loading is robust when
+        # CUDA_VISIBLE_DEVICES remaps local device indices (e.g., each process
+        # sees one local "cuda:0").
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
         if "config_dict" in checkpoint:
             config = load_config_dict(checkpoint["config_dict"])
         else:

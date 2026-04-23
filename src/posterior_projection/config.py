@@ -12,6 +12,7 @@ class ProblemConfig:
     family: str = "nonlinear_elliptic"
     equation: str = "-Delta v + kappa v^3 = u"
     kappa: float = 50.0
+    linear_beta: float = 1.0
     nx: int = 63
     domain_length: float = 1.0
     reference_oracle_backend: str = "chonkdiff"

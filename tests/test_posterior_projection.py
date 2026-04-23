@@ -120,6 +120,36 @@ class PosteriorProjectionProblemTests(unittest.TestCase):
         self.assertAlmostEqual(ce_bc, 0.0, places=12)
         self.assertAlmostEqual(ce_cl, residual, places=12)
 
+    def test_linear_elliptic_family_jacobian_and_constraints(self) -> None:
+        config = ExperimentConfig()
+        config.problem.family = "linear_elliptic_helmholtz"
+        config.problem.kappa = 0.0
+        config.problem.linear_beta = 1.0
+        linear_problem = JointPosteriorProblem(config.problem)
+
+        state = torch.randn(2, config.problem.nx, dtype=torch.float64) * 0.1
+        jacobian = linear_problem.joint_jacobian_from_state(state)
+
+        eps = 1.0e-6
+        finite_difference = []
+        flat_state = state.reshape(-1)
+        for index in range(flat_state.numel()):
+            perturb = torch.zeros_like(flat_state)
+            perturb[index] = eps
+            plus = linear_problem.residual_from_state((flat_state + perturb).reshape_as(state))
+            minus = linear_problem.residual_from_state((flat_state - perturb).reshape_as(state))
+            finite_difference.append(((plus - minus) / (2.0 * eps)).unsqueeze(-1))
+        fd_matrix = torch.cat(finite_difference, dim=-1)
+        self.assertLess(float(torch.max(torch.abs(jacobian - fd_matrix)).item()), 5.0e-4)
+
+        ce_ic = float(linear_problem.ce_ic_from_state(state).item())
+        ce_bc = float(linear_problem.ce_bc_from_state(state).item())
+        ce_cl = float(linear_problem.ce_cl_from_state(state).item())
+        residual = float(linear_problem.residual_norm_from_state(state).item())
+        self.assertTrue(torch.isnan(torch.tensor(ce_ic)))
+        self.assertAlmostEqual(ce_bc, 0.0, places=12)
+        self.assertAlmostEqual(ce_cl, residual, places=12)
+
 
 class PosteriorProjectionScheduleTests(unittest.TestCase):
     def test_materialize_schedule_every_five(self) -> None:
