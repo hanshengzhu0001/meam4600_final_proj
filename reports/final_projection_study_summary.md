@@ -277,6 +277,14 @@ Completed:
   - `outputs/burgers_ic_family_summary.md`
   - baseline checkpoint:
     - `outputs/posterior_projection_burgers_ic_baseline/best.pt`
+- `burgers_bc_dirichlet` (baseline full guidance sweep + summary):
+  - `outputs/burgers_bc_family_summary.md`
+  - baseline checkpoint:
+    - `outputs/posterior_projection_burgers_bc_baseline/best.pt`
+- `navier_stokes_1d_implicit` (baseline full guidance sweep + summary):
+  - `outputs/navier_stokes_family_summary.md`
+  - baseline checkpoint:
+    - `outputs/posterior_projection_navier_stokes_baseline/best.pt`
 
 Stronger-training follow-up completed:
 - stronger checkpoint:
@@ -293,7 +301,7 @@ Stronger-training follow-up completed:
 Takeaway:
 - for the reaction-diffusion family in this setup, stronger training did not improve inverse-recovery quality over baseline, even though runtime improved slightly.
 
-Current in-progress extension:
+Additional completed check:
 - stronger Burgers checkpoint:
   - `outputs/posterior_projection_burgers_ic_e200_b128/best.pt`
   - medium `g=16` probe completed:

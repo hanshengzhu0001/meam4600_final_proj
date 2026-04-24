@@ -20,6 +20,12 @@ class ProblemConfig:
     reaction_dt: float = 0.1
     burgers_nu: float = 0.01
     burgers_dt: float = 0.1
+    burgers_bc_left: float = 0.0
+    burgers_bc_right: float = 0.0
+    ns_nu: float = 0.01
+    ns_dt: float = 0.1
+    ns_advection_speed: float = 1.0
+    ns_forcing_amplitude: float = 0.1
     nx: int = 63
     domain_length: float = 1.0
     reference_oracle_backend: str = "chonkdiff"

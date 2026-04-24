@@ -241,6 +241,72 @@ class PosteriorProjectionProblemTests(unittest.TestCase):
         self.assertAlmostEqual(ce_bc, 0.0, places=12)
         self.assertAlmostEqual(ce_cl, residual, places=12)
 
+    def test_burgers_bc_family_jacobian_and_constraints(self) -> None:
+        config = ExperimentConfig()
+        config.problem.family = "burgers_bc_dirichlet"
+        config.problem.burgers_nu = 0.01
+        config.problem.burgers_bc_left = 0.0
+        config.problem.burgers_bc_right = 0.0
+        burgers_problem = JointPosteriorProblem(config.problem)
+
+        state = torch.randn(2, config.problem.nx, dtype=torch.float64) * 0.1
+        state[1, 0] = config.problem.burgers_bc_left
+        state[1, -1] = config.problem.burgers_bc_right
+        jacobian = burgers_problem.joint_jacobian_from_state(state)
+
+        eps = 1.0e-6
+        finite_difference = []
+        flat_state = state.reshape(-1)
+        for index in range(flat_state.numel()):
+            perturb = torch.zeros_like(flat_state)
+            perturb[index] = eps
+            plus = burgers_problem.residual_from_state((flat_state + perturb).reshape_as(state))
+            minus = burgers_problem.residual_from_state((flat_state - perturb).reshape_as(state))
+            finite_difference.append(((plus - minus) / (2.0 * eps)).unsqueeze(-1))
+        fd_matrix = torch.cat(finite_difference, dim=-1)
+        self.assertLess(float(torch.max(torch.abs(jacobian - fd_matrix)).item()), 2.5e-3)
+
+        ce_ic = float(burgers_problem.ce_ic_from_state(state).item())
+        ce_bc = float(burgers_problem.ce_bc_from_state(state).item())
+        ce_cl = float(burgers_problem.ce_cl_from_state(state).item())
+        residual = burgers_problem.residual_from_state(state)
+        interior_norm = float(torch.linalg.vector_norm(residual[1:-1], dim=-1).item())
+        self.assertTrue(torch.isnan(torch.tensor(ce_ic)))
+        self.assertAlmostEqual(ce_bc, 0.0, places=12)
+        self.assertAlmostEqual(ce_cl, interior_norm, places=12)
+
+    def test_navier_stokes_family_jacobian_and_constraints(self) -> None:
+        config = ExperimentConfig()
+        config.problem.family = "navier_stokes_1d_implicit"
+        config.problem.ns_nu = 0.01
+        config.problem.ns_dt = 0.1
+        config.problem.ns_advection_speed = 1.0
+        config.problem.ns_forcing_amplitude = 0.1
+        navier_problem = JointPosteriorProblem(config.problem)
+
+        state = torch.randn(2, config.problem.nx, dtype=torch.float64) * 0.1
+        jacobian = navier_problem.joint_jacobian_from_state(state)
+
+        eps = 1.0e-6
+        finite_difference = []
+        flat_state = state.reshape(-1)
+        for index in range(flat_state.numel()):
+            perturb = torch.zeros_like(flat_state)
+            perturb[index] = eps
+            plus = navier_problem.residual_from_state((flat_state + perturb).reshape_as(state))
+            minus = navier_problem.residual_from_state((flat_state - perturb).reshape_as(state))
+            finite_difference.append(((plus - minus) / (2.0 * eps)).unsqueeze(-1))
+        fd_matrix = torch.cat(finite_difference, dim=-1)
+        self.assertLess(float(torch.max(torch.abs(jacobian - fd_matrix)).item()), 1.0e-3)
+
+        ce_ic = float(navier_problem.ce_ic_from_state(state).item())
+        ce_bc = float(navier_problem.ce_bc_from_state(state).item())
+        ce_cl = float(navier_problem.ce_cl_from_state(state).item())
+        residual = float(navier_problem.residual_norm_from_state(state).item())
+        self.assertTrue(torch.isnan(torch.tensor(ce_ic)))
+        self.assertAlmostEqual(ce_bc, 0.0, places=12)
+        self.assertAlmostEqual(ce_cl, residual, places=12)
+
 
 class PosteriorProjectionScheduleTests(unittest.TestCase):
     def test_materialize_schedule_every_five(self) -> None:

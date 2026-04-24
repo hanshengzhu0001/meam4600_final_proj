@@ -10,6 +10,8 @@ All of the following families completed full guidance sweeps (`g=0.25,1,2,4,8,12
 - `heat_equation_periodic`
 - `reaction_diffusion_ic_implicit`
 - `burgers_ic_implicit`
+- `burgers_bc_dirichlet`
+- `navier_stokes_1d_implicit`
 
 ## Objective Winners by Family (Baseline Checkpoint)
 
@@ -19,6 +21,8 @@ All of the following families completed full guidance sweeps (`g=0.25,1,2,4,8,12
 | heat_equation_periodic | `g16, every_5/first_order` (`3.1180`) | `g2, every_step/gauss_newton` (`0.3760`) | `g16, none/none` (`0.6774s`) | `g0.25, none/none` (`0.0`) |
 | reaction_diffusion_ic_implicit | `g16, every_5/first_order` (`1.6141`) | `g16, adaptive_residual/gauss_newton` (`~1e-6`) | `g2, none/none` (`0.6471s`) | `g0.25, none/none` (`0.0`) |
 | burgers_ic_implicit | `g16, every_2/first_order` (`2.7776`) | `g12, every_step/gauss_newton` (`~1e-7`) | `g1, none/none` (`0.6602s`) | `g0.25, none/none` (`0.0`) |
+| burgers_bc_dirichlet | `g16, none/none` (`3.4434`) | `g12, final_only/gauss_newton` (`4.0e-6`) | `g12, none/none` (`0.6491s`) | `g0.25, none/none` (`0.0`) |
+| navier_stokes_1d_implicit | `g16, every_2/gauss_newton` (`2.8090`) | `g16, every_step/gauss_newton` (`~1e-7`) | `g4, none/none` (`0.6419s`) | `g0.25, none/none` (`0.0`) |
 
 ## Guidance Benefit (Best-u Row, `g16` vs `g0.25`)
 
@@ -28,6 +32,8 @@ All of the following families completed full guidance sweeps (`g=0.25,1,2,4,8,12
 | heat_equation_periodic | `-25.20%` | `-26.31%` | `-41.32%` | `-29.33%` | `-3.18%` |
 | reaction_diffusion_ic_implicit | `-29.84%` | `-31.38%` | `-42.28%` | `-35.81%` | `+2.31%` |
 | burgers_ic_implicit | `-26.12%` | `-27.81%` | `-41.88%` | `-31.18%` | `-1.74%` |
+| burgers_bc_dirichlet | `-9.03%` | `-25.43%` | `-34.70%` | `-21.63%` | `+0.27%` |
+| navier_stokes_1d_implicit | `-24.11%` | `-28.06%` | `-38.12%` | `-29.56%` | `+18.49%` |
 
 ## Stronger-Training Checks
 
@@ -44,3 +50,4 @@ All of the following families completed full guidance sweeps (`g=0.25,1,2,4,8,12
 - Across all tested families, stronger observation guidance consistently improves inverse recovery (`u_error`, `v_error`, `obs_error`, `posterior_quality`).
 - `none/none` remains the stability/runtime anchor case.
 - Physical-consistency winners often favor `gauss_newton`, while pure recovery winners often favor `first_order` with frequent projection.
+- Burgers-BC is the main outlier in `u_error` sensitivity (smaller `g16` gain than other families), but still follows the same monotonic improvement trend.

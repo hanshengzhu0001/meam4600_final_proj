@@ -69,7 +69,12 @@ def _build_linear_elliptic_dataset(
         out_path,
         family=np.asarray(config.problem.family),
         equation=np.asarray(config.problem.equation),
-        x=benchmark.x.detach().cpu().numpy(),
+        x=torch.linspace(
+            0.0,
+            float(config.problem.domain_length),
+            config.problem.nx,
+            dtype=torch.float64,
+        ).detach().cpu().numpy(),
         train_u=train_u,
         train_v=train_v,
         val_u=val_u,
@@ -329,6 +334,183 @@ def _build_burgers_implicit_dataset(
     return out_path
 
 
+def _build_burgers_bc_dirichlet_dataset(
+    config: ExperimentConfig,
+    train_size: int,
+    val_size: int,
+    seed: int,
+    out_path: Path,
+    force: bool,
+) -> Path:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    if out_path.exists() and not force:
+        return out_path
+
+    if config.problem.burgers_nu <= 0.0:
+        raise ValueError("burgers_bc_dirichlet requires problem.burgers_nu > 0")
+    if config.problem.nx < 3:
+        raise ValueError("burgers_bc_dirichlet requires nx >= 3")
+
+    benchmark = NonlinearElliptic1D(
+        BenchmarkConfig(
+            nx=config.problem.nx,
+            domain_length=config.problem.domain_length,
+            kappa=0.0,
+            forcing=ForcingConfig(
+                period_length=config.problem.forcing_period_length,
+                lengthscale=config.problem.forcing_lengthscale,
+                jitter=config.problem.forcing_jitter,
+            ),
+        ),
+        dtype=torch.float64,
+    )
+
+    total = train_size + val_size
+    raw_v = benchmark.sample_forcing(total, seed=seed).u.to(torch.float64)
+    states_v = 0.35 * torch.tanh(raw_v)
+    states_v[:, 0] = float(config.problem.burgers_bc_left)
+    states_v[:, -1] = float(config.problem.burgers_bc_right)
+
+    dx = float(config.problem.domain_length) / float(config.problem.nx - 1)
+    first_derivative = torch.zeros((config.problem.nx, config.problem.nx), dtype=torch.float64)
+    second_derivative = torch.zeros((config.problem.nx, config.problem.nx), dtype=torch.float64)
+    for index in range(1, config.problem.nx - 1):
+        first_derivative[index, index + 1] = 0.5 / dx
+        first_derivative[index, index - 1] = -0.5 / dx
+        second_derivative[index, index + 1] = 1.0 / (dx * dx)
+        second_derivative[index, index] = -2.0 / (dx * dx)
+        second_derivative[index, index - 1] = 1.0 / (dx * dx)
+
+    d_x_v = torch.matmul(first_derivative.unsqueeze(0), states_v.unsqueeze(-1)).squeeze(-1)
+    d_xx_v = torch.matmul(second_derivative.unsqueeze(0), states_v.unsqueeze(-1)).squeeze(-1)
+    states_u = -float(config.problem.burgers_nu) * d_xx_v + states_v * d_x_v
+    states_u[:, 0] = float(config.problem.burgers_bc_left)
+    states_u[:, -1] = float(config.problem.burgers_bc_right)
+
+    u_array = states_u.detach().cpu().numpy()
+    v_array = states_v.detach().cpu().numpy()
+
+    train_u = u_array[:train_size]
+    train_v = v_array[:train_size]
+    val_u = u_array[train_size:]
+    val_v = v_array[train_size:]
+
+    u_mean = float(train_u.mean())
+    u_std = float(train_u.std() + 1.0e-6)
+    v_mean = float(train_v.mean())
+    v_std = float(train_v.std() + 1.0e-6)
+
+    np.savez_compressed(
+        out_path,
+        family=np.asarray(config.problem.family),
+        equation=np.asarray(config.problem.equation),
+        x=benchmark.x.detach().cpu().numpy(),
+        train_u=train_u,
+        train_v=train_v,
+        val_u=val_u,
+        val_v=val_v,
+        u_mean=np.asarray(u_mean, dtype=np.float32),
+        u_std=np.asarray(u_std, dtype=np.float32),
+        v_mean=np.asarray(v_mean, dtype=np.float32),
+        v_std=np.asarray(v_std, dtype=np.float32),
+        burgers_nu=np.asarray(config.problem.burgers_nu, dtype=np.float32),
+        burgers_bc_left=np.asarray(config.problem.burgers_bc_left, dtype=np.float32),
+        burgers_bc_right=np.asarray(config.problem.burgers_bc_right, dtype=np.float32),
+        nx=np.asarray(config.problem.nx, dtype=np.int32),
+    )
+    return out_path
+
+
+def _build_navier_stokes_implicit_dataset(
+    config: ExperimentConfig,
+    train_size: int,
+    val_size: int,
+    seed: int,
+    out_path: Path,
+    force: bool,
+) -> Path:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    if out_path.exists() and not force:
+        return out_path
+
+    if config.problem.ns_nu <= 0.0:
+        raise ValueError("navier_stokes_1d_implicit requires problem.ns_nu > 0")
+    if config.problem.ns_dt <= 0.0:
+        raise ValueError("navier_stokes_1d_implicit requires problem.ns_dt > 0")
+
+    benchmark = NonlinearElliptic1D(
+        BenchmarkConfig(
+            nx=config.problem.nx,
+            domain_length=config.problem.domain_length,
+            kappa=0.0,
+            forcing=ForcingConfig(
+                period_length=config.problem.forcing_period_length,
+                lengthscale=config.problem.forcing_lengthscale,
+                jitter=config.problem.forcing_jitter,
+            ),
+        ),
+        dtype=torch.float64,
+    )
+
+    total = train_size + val_size
+    raw_v = benchmark.sample_forcing(total, seed=seed).u.to(torch.float64)
+    states_v = 0.35 * torch.tanh(raw_v)
+
+    dx = float(config.problem.domain_length) / float(config.problem.nx)
+    derivative = torch.zeros((config.problem.nx, config.problem.nx), dtype=torch.float64)
+    for index in range(config.problem.nx):
+        derivative[index, (index + 1) % config.problem.nx] = 0.5 / dx
+        derivative[index, (index - 1) % config.problem.nx] = -0.5 / dx
+
+    d_x_v = torch.matmul(derivative.unsqueeze(0), states_v.unsqueeze(-1)).squeeze(-1)
+    laplace_neg_v = torch.matmul(
+        benchmark.base_operator.to(torch.float64).unsqueeze(0),
+        states_v.unsqueeze(-1),
+    ).squeeze(-1)
+    forcing = float(config.problem.ns_forcing_amplitude) * torch.sin(
+        2.0 * torch.pi * benchmark.x.to(torch.float64) / float(config.problem.domain_length)
+    )
+    states_u = states_v + float(config.problem.ns_dt) * (
+        float(config.problem.ns_advection_speed) * d_x_v
+        + float(config.problem.ns_nu) * laplace_neg_v
+        - forcing.unsqueeze(0)
+    )
+
+    u_array = states_u.detach().cpu().numpy()
+    v_array = states_v.detach().cpu().numpy()
+
+    train_u = u_array[:train_size]
+    train_v = v_array[:train_size]
+    val_u = u_array[train_size:]
+    val_v = v_array[train_size:]
+
+    u_mean = float(train_u.mean())
+    u_std = float(train_u.std() + 1.0e-6)
+    v_mean = float(train_v.mean())
+    v_std = float(train_v.std() + 1.0e-6)
+
+    np.savez_compressed(
+        out_path,
+        family=np.asarray(config.problem.family),
+        equation=np.asarray(config.problem.equation),
+        x=benchmark.x.detach().cpu().numpy(),
+        train_u=train_u,
+        train_v=train_v,
+        val_u=val_u,
+        val_v=val_v,
+        u_mean=np.asarray(u_mean, dtype=np.float32),
+        u_std=np.asarray(u_std, dtype=np.float32),
+        v_mean=np.asarray(v_mean, dtype=np.float32),
+        v_std=np.asarray(v_std, dtype=np.float32),
+        ns_nu=np.asarray(config.problem.ns_nu, dtype=np.float32),
+        ns_dt=np.asarray(config.problem.ns_dt, dtype=np.float32),
+        ns_advection_speed=np.asarray(config.problem.ns_advection_speed, dtype=np.float32),
+        ns_forcing_amplitude=np.asarray(config.problem.ns_forcing_amplitude, dtype=np.float32),
+        nx=np.asarray(config.problem.nx, dtype=np.int32),
+    )
+    return out_path
+
+
 def generate_family_dataset(
     config: ExperimentConfig,
     train_size: int,
@@ -374,10 +556,29 @@ def generate_family_dataset(
             out_path=target,
             force=force,
         )
+    if config.problem.family == "burgers_bc_dirichlet":
+        return _build_burgers_bc_dirichlet_dataset(
+            config=config,
+            train_size=train_size,
+            val_size=val_size,
+            seed=seed,
+            out_path=target,
+            force=force,
+        )
+    if config.problem.family == "navier_stokes_1d_implicit":
+        return _build_navier_stokes_implicit_dataset(
+            config=config,
+            train_size=train_size,
+            val_size=val_size,
+            seed=seed,
+            out_path=target,
+            force=force,
+        )
     raise ValueError(
         f"dataset generation not implemented for family '{config.problem.family}' "
         "(implemented: linear_elliptic_helmholtz, heat_equation_periodic, "
-        "reaction_diffusion_ic_implicit, burgers_ic_implicit)"
+        "reaction_diffusion_ic_implicit, burgers_ic_implicit, burgers_bc_dirichlet, "
+        "navier_stokes_1d_implicit)"
     )
 
 

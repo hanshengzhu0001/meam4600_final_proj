@@ -388,6 +388,209 @@ class BurgersICImplicitBackend:
         return torch.linalg.vector_norm(residual, dim=-1)
 
 
+class BurgersBCDirichletBackend:
+    """Steady viscous Burgers family with Dirichlet boundary conditions.
+
+    Equation:
+        -nu * d_xx(v) + v * d_x(v) = u
+    with fixed boundary values:
+        v(0)=bc_left, v(L)=bc_right.
+    """
+
+    def __init__(
+        self,
+        config: ProblemConfig,
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> None:
+        self.nx = config.nx
+        self.nu = float(config.burgers_nu)
+        self.bc_left = float(config.burgers_bc_left)
+        self.bc_right = float(config.burgers_bc_right)
+        if self.nu <= 0.0:
+            raise ValueError("burgers_bc_dirichlet requires problem.burgers_nu > 0")
+        if self.nx < 3:
+            raise ValueError("burgers_bc_dirichlet requires nx >= 3")
+
+        dx = float(config.domain_length) / float(config.nx - 1)
+        first_derivative = torch.zeros((self.nx, self.nx), dtype=dtype, device=device)
+        second_derivative = torch.zeros((self.nx, self.nx), dtype=dtype, device=device)
+        for index in range(1, self.nx - 1):
+            first_derivative[index, index + 1] = 0.5 / dx
+            first_derivative[index, index - 1] = -0.5 / dx
+            second_derivative[index, index + 1] = 1.0 / (dx * dx)
+            second_derivative[index, index] = -2.0 / (dx * dx)
+            second_derivative[index, index - 1] = 1.0 / (dx * dx)
+
+        self._first_derivative = first_derivative
+        self._second_derivative = second_derivative
+
+    def _apply_operator(self, operator: torch.Tensor, field: torch.Tensor) -> torch.Tensor:
+        op = operator.to(device=field.device, dtype=field.dtype)
+        if field.ndim == 1:
+            return op @ field
+        return torch.matmul(op.unsqueeze(0), field.unsqueeze(-1)).squeeze(-1)
+
+    def residual(self, u: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
+        d_x_v = self._apply_operator(self._first_derivative, v)
+        d_xx_v = self._apply_operator(self._second_derivative, v)
+        residual = -self.nu * d_xx_v + v * d_x_v - u
+        if v.ndim == 1:
+            residual = residual.clone()
+            residual[0] = v[0] - u[0]
+            residual[-1] = v[-1] - u[-1]
+            return residual
+        residual = residual.clone()
+        residual[..., 0] = v[..., 0] - u[..., 0]
+        residual[..., -1] = v[..., -1] - u[..., -1]
+        return residual
+
+    def jacobian_v(self, v: torch.Tensor) -> torch.Tensor:
+        first_derivative = self._first_derivative.to(device=v.device, dtype=v.dtype)
+        second_derivative = self._second_derivative.to(device=v.device, dtype=v.dtype)
+        d_x_v = self._apply_operator(first_derivative, v)
+        diffusion = -self.nu * second_derivative
+
+        if v.ndim == 1:
+            jacobian = diffusion + torch.diag(d_x_v) + torch.diag(v) @ first_derivative
+            jacobian = jacobian.clone()
+            jacobian[0, :] = 0.0
+            jacobian[0, 0] = 1.0
+            jacobian[-1, :] = 0.0
+            jacobian[-1, -1] = 1.0
+            return jacobian
+
+        batch = v.shape[0]
+        diffusion_batch = diffusion.unsqueeze(0).expand(batch, -1, -1)
+        first_derivative_batch = first_derivative.unsqueeze(0).expand(batch, -1, -1)
+        jacobian = (
+            diffusion_batch
+            + torch.diag_embed(d_x_v)
+            + torch.matmul(torch.diag_embed(v), first_derivative_batch)
+        )
+        jacobian = jacobian.clone()
+        jacobian[:, 0, :] = 0.0
+        jacobian[:, 0, 0] = 1.0
+        jacobian[:, -1, :] = 0.0
+        jacobian[:, -1, -1] = 1.0
+        return jacobian
+
+    def ce_ic_from_state(self, state: torch.Tensor) -> torch.Tensor:
+        return torch.full((), float("nan"), dtype=state.dtype, device=state.device)
+
+    def ce_bc_from_state(self, state: torch.Tensor) -> torch.Tensor:
+        v = state[..., 1, :]
+        left = (v[..., 0] - self.bc_left) ** 2
+        right = (v[..., -1] - self.bc_right) ** 2
+        return torch.sqrt(0.5 * (left + right))
+
+    def ce_cl_from_state(self, state: torch.Tensor) -> torch.Tensor:
+        u = state[..., 0, :]
+        v = state[..., 1, :]
+        residual = self.residual(u, v)
+        if self.nx <= 2:
+            return torch.linalg.vector_norm(residual, dim=-1)
+        interior = residual[..., 1:-1]
+        return torch.linalg.vector_norm(interior, dim=-1)
+
+
+class NavierStokes1DImplicitBackend:
+    """Reduced 1D periodic Navier-Stokes-like implicit family.
+
+    We use a one-step backward-Euler discretization of a forced viscous transport model:
+        (v - u) / dt + c * d_x(v) = nu * d_xx(v) + f(x),
+    with periodic boundary conditions.
+
+    Rearranged residual:
+        h(u, v) = v + dt * (c * d_x(v) + nu * (-Delta)v - f(x)) - u.
+    """
+
+    def __init__(
+        self,
+        config: ProblemConfig,
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> None:
+        benchmark_config = BenchmarkConfig(
+            nx=config.nx,
+            domain_length=config.domain_length,
+            kappa=0.0,
+            forcing=ForcingConfig(
+                period_length=config.forcing_period_length,
+                lengthscale=config.forcing_lengthscale,
+                jitter=config.forcing_jitter,
+            ),
+        )
+        self.nx = config.nx
+        self.nu = float(config.ns_nu)
+        self.dt = float(config.ns_dt)
+        self.advection_speed = float(config.ns_advection_speed)
+        self.forcing_amplitude = float(config.ns_forcing_amplitude)
+        if self.nu <= 0.0:
+            raise ValueError("navier_stokes_1d_implicit requires problem.ns_nu > 0")
+        if self.dt <= 0.0:
+            raise ValueError("navier_stokes_1d_implicit requires problem.ns_dt > 0")
+
+        self.benchmark = NonlinearElliptic1D(
+            benchmark_config,
+            device=device,
+            dtype=dtype,
+        )
+        dx = float(config.domain_length) / float(config.nx)
+        derivative = torch.zeros((self.nx, self.nx), dtype=dtype, device=device)
+        for index in range(self.nx):
+            derivative[index, (index + 1) % self.nx] = 0.5 / dx
+            derivative[index, (index - 1) % self.nx] = -0.5 / dx
+        self._first_derivative = derivative
+        self._laplace_neg = self.benchmark.base_operator.to(device=device, dtype=dtype)
+        self._identity = torch.eye(self.nx, dtype=dtype, device=device)
+        x = self.benchmark.x.to(device=device, dtype=dtype)
+        self._forcing = self.forcing_amplitude * torch.sin(
+            2.0 * torch.pi * x / float(config.domain_length)
+        )
+
+    def _apply_operator(self, operator: torch.Tensor, field: torch.Tensor) -> torch.Tensor:
+        op = operator.to(device=field.device, dtype=field.dtype)
+        if field.ndim == 1:
+            return op @ field
+        return torch.matmul(op.unsqueeze(0), field.unsqueeze(-1)).squeeze(-1)
+
+    def _forcing_like(self, field: torch.Tensor) -> torch.Tensor:
+        forcing = self._forcing.to(device=field.device, dtype=field.dtype)
+        if field.ndim == 1:
+            return forcing
+        return forcing.unsqueeze(0).expand(field.shape[0], -1)
+
+    def residual(self, u: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
+        d_x_v = self._apply_operator(self._first_derivative, v)
+        laplace_neg_v = self._apply_operator(self._laplace_neg, v)
+        forcing = self._forcing_like(v)
+        return v + self.dt * (self.advection_speed * d_x_v + self.nu * laplace_neg_v - forcing) - u
+
+    def jacobian_v(self, v: torch.Tensor) -> torch.Tensor:
+        derivative = self._first_derivative.to(device=v.device, dtype=v.dtype)
+        laplace_neg = self._laplace_neg.to(device=v.device, dtype=v.dtype)
+        identity = self._identity.to(device=v.device, dtype=v.dtype)
+        operator = identity + self.dt * (self.advection_speed * derivative + self.nu * laplace_neg)
+        if v.ndim == 1:
+            return operator
+        return operator.unsqueeze(0).expand(v.shape[0], -1, -1)
+
+    def ce_ic_from_state(self, state: torch.Tensor) -> torch.Tensor:
+        return torch.full((), float("nan"), dtype=state.dtype, device=state.device)
+
+    def ce_bc_from_state(self, state: torch.Tensor) -> torch.Tensor:
+        v = state[..., 1, :]
+        value = self.benchmark.periodic_bc_violation(v)
+        return value.to(dtype=state.dtype, device=state.device)
+
+    def ce_cl_from_state(self, state: torch.Tensor) -> torch.Tensor:
+        u = state[..., 0, :]
+        v = state[..., 1, :]
+        residual = self.residual(u, v)
+        return torch.linalg.vector_norm(residual, dim=-1)
+
+
 def _supported_families() -> tuple[str, ...]:
     return (
         "nonlinear_elliptic",
@@ -395,6 +598,8 @@ def _supported_families() -> tuple[str, ...]:
         "heat_equation_periodic",
         "reaction_diffusion_ic_implicit",
         "burgers_ic_implicit",
+        "burgers_bc_dirichlet",
+        "navier_stokes_1d_implicit",
     )
 
 
@@ -429,6 +634,18 @@ def get_dataset_spec(family: str) -> FamilyDatasetSpec:
             v_key="{split}_v",
             x_key="x",
         )
+    if family == "burgers_bc_dirichlet":
+        return FamilyDatasetSpec(
+            u_key="{split}_u",
+            v_key="{split}_v",
+            x_key="x",
+        )
+    if family == "navier_stokes_1d_implicit":
+        return FamilyDatasetSpec(
+            u_key="{split}_u",
+            v_key="{split}_v",
+            x_key="x",
+        )
     supported = ", ".join(_supported_families())
     raise ValueError(f"unsupported PDE family '{family}'; supported families: {supported}")
 
@@ -452,5 +669,9 @@ def build_problem_backend(
         return ReactionDiffusionImplicitICBackend(config=config, device=device, dtype=dtype)
     if config.family == "burgers_ic_implicit":
         return BurgersICImplicitBackend(config=config, device=device, dtype=dtype)
+    if config.family == "burgers_bc_dirichlet":
+        return BurgersBCDirichletBackend(config=config, device=device, dtype=dtype)
+    if config.family == "navier_stokes_1d_implicit":
+        return NavierStokes1DImplicitBackend(config=config, device=device, dtype=dtype)
     supported = ", ".join(_supported_families())
     raise ValueError(f"unsupported PDE family '{config.family}'; supported families: {supported}")
