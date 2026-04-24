@@ -13,6 +13,13 @@ class ProblemConfig:
     equation: str = "-Delta v + kappa v^3 = u"
     kappa: float = 50.0
     linear_beta: float = 1.0
+    heat_nu: float = 0.01
+    heat_time: float = 0.1
+    reaction_nu: float = 0.01
+    reaction_rho: float = 1.0
+    reaction_dt: float = 0.1
+    burgers_nu: float = 0.01
+    burgers_dt: float = 0.1
     nx: int = 63
     domain_length: float = 1.0
     reference_oracle_backend: str = "chonkdiff"

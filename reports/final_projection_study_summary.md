@@ -259,6 +259,56 @@ PYTHONPATH=src .venv/bin/python -u -m posterior_projection.evaluate \
   --csv-out outputs/guidance_big_g10.0/eval_full.csv
 ```
 
+## 8. Multi-Family Extension Status (2026-04-24)
+
+The original nonlinear-elliptic study above remains the main project result.  
+We have now extended the same projection-study protocol to additional families.
+
+Completed:
+- `linear_elliptic_helmholtz` (full guidance sweep + summary):
+  - `outputs/linear_elliptic_family_summary.md`
+- `heat_equation_periodic` (full guidance sweep + summary):
+  - `outputs/heat_equation_family_summary.md`
+- `reaction_diffusion_ic_implicit` (baseline full guidance sweep + summary):
+  - `outputs/reaction_diffusion_family_summary.md`
+  - baseline checkpoint:
+    - `outputs/posterior_projection_reaction_diffusion_baseline/best.pt`
+- `burgers_ic_implicit` (baseline full guidance sweep + summary):
+  - `outputs/burgers_ic_family_summary.md`
+  - baseline checkpoint:
+    - `outputs/posterior_projection_burgers_ic_baseline/best.pt`
+
+Stronger-training follow-up completed:
+- stronger checkpoint:
+  - `outputs/posterior_projection_reaction_diffusion_e200_b128/best.pt`
+- full guidance sweep outputs:
+  - `outputs/reaction_diffusion_e200_b128_g*/eval_full.json`
+- matched strong-guidance comparison vs baseline (`g=16`, best-u row):
+  - `u_error`: `+0.21%` (worse)
+  - `v_error`: `+2.20%` (worse)
+  - `obs_error`: `+12.02%` (worse)
+  - `posterior_quality`: `+5.51%` (worse)
+  - `runtime`: `-3.46%` (faster)
+
+Takeaway:
+- for the reaction-diffusion family in this setup, stronger training did not improve inverse-recovery quality over baseline, even though runtime improved slightly.
+
+Current in-progress extension:
+- stronger Burgers checkpoint:
+  - `outputs/posterior_projection_burgers_ic_e200_b128/best.pt`
+  - medium `g=16` probe completed:
+    - `outputs/burgers_ic_e200_b128_g16.0/eval_32x2.json`
+  - matched baseline medium:
+    - `outputs/burgers_ic_baseline_g16.0/eval_32x2.json`
+  - stronger vs baseline medium (best-u row):
+    - `u_error`: `+2.62%` (worse)
+    - `v_error`: `+3.20%` (worse)
+    - `obs_error`: `+0.96%` (worse)
+    - `posterior_quality`: `+2.44%` (worse)
+    - `runtime`: `+0.91%` (slower)
+  - decision:
+    - no full promotion for this stronger Burgers checkpoint.
+
 ```bash
 PYTHONPATH=src .venv/bin/python -u -m posterior_projection.evaluate \
   --checkpoint outputs/posterior_projection_e200_big/best.pt \
