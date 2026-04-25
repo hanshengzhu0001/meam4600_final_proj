@@ -320,28 +320,32 @@ Additional completed check:
   - `outputs/posterior_projection_burgers_bc_e200_b128/best.pt`
   - medium `g=16` probe completed:
     - `outputs/burgers_bc_e200_b128_g16.0/eval_32x2.json`
-  - matched baseline medium:
-    - `outputs/burgers_bc_baseline_g16.0/eval_32x2.json`
-  - stronger vs baseline medium (best-u row):
-    - `u_error`: `+4.88%` (worse)
-    - `v_error`: `-5.28%` (better)
-    - `obs_error`: `-6.94%` (better)
-    - `posterior_quality`: `-0.64%` (better)
-    - `runtime`: `-20.97%` (faster)
+  - matched full `g=16` check completed:
+    - `outputs/burgers_bc_e200_b128_g16.0/eval_full.json`
+  - matched baseline full:
+    - `outputs/burgers_bc_g16.0/eval_full.json`
+  - stronger vs baseline full (best-u row):
+    - `u_error`: `+2.31%` (worse)
+    - `v_error`: `-2.36%` (better)
+    - `obs_error`: `-0.77%` (better)
+    - `posterior_quality`: `+0.06%` (slightly worse)
+    - `runtime`: `-12.64%` (faster)
   - decision:
-    - keep baseline default when prioritizing inverse-target `u_error`; stronger checkpoint is a runtime-favoring alternative.
+    - keep baseline default when prioritizing inverse-target `u_error`; stronger checkpoint is only a runtime-favoring alternative.
 - stronger Navier-Stokes checkpoint:
   - `outputs/posterior_projection_navier_stokes_e200_b128/best.pt`
   - medium `g=16` probe completed:
     - `outputs/navier_stokes_e200_b128_g16.0/eval_32x2.json`
-  - matched baseline medium:
-    - `outputs/navier_stokes_baseline_g16.0/eval_32x2.json`
-  - stronger vs baseline medium (best-u row):
-    - `u_error`: `+6.18%` (worse)
-    - `v_error`: `+13.77%` (worse)
-    - `obs_error`: `+15.67%` (worse)
-    - `posterior_quality`: `+11.33%` (worse)
-    - `runtime`: `-9.12%` (faster)
+  - matched full `g=16` check completed:
+    - `outputs/navier_stokes_e200_b128_g16.0/eval_full.json`
+  - matched baseline full:
+    - `outputs/navier_stokes_g16.0/eval_full.json`
+  - stronger vs baseline full (best-u row):
+    - `u_error`: `+7.97%` (worse)
+    - `v_error`: `+11.78%` (worse)
+    - `obs_error`: `+9.11%` (worse)
+    - `posterior_quality`: `+9.65%` (worse)
+    - `runtime`: `+0.66%` (slightly slower)
   - decision:
     - no full promotion for this stronger Navier-Stokes checkpoint.
 

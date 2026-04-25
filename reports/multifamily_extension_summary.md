@@ -45,13 +45,13 @@ All of the following families completed full guidance sweeps (`g=0.25,1,2,4,8,12
   - Compared to matched baseline medium (`g16, 32x2`): worse across key recovery metrics (`u_error +2.62%`, `posterior_quality +2.44%`) and slightly slower runtime (`+0.91%`).
   - Decision: no full promotion for this stronger checkpoint.
 
-- Burgers-BC stronger checkpoint (`e200_b128`) completed matched medium probe (`g16, 32x2`).
-  - Compared to matched baseline medium (`g16, 32x2`): `u_error` was worse (`+4.88%`), but `v_error` (`-5.28%`), `obs_error` (`-6.94%`), and `posterior_quality` (`-0.64%`) improved, with faster runtime (`-20.97%`).
-  - Decision: keep baseline as default for strict inverse-target `u_error`, but keep stronger checkpoint as a runtime-favoring alternative.
+- Burgers-BC stronger checkpoint (`e200_b128`) completed matched full check (`g16, 128x3`).
+  - Compared to matched baseline full (`g16, 128x3`): `u_error` was worse (`+2.31%`) and `posterior_quality` was essentially flat/slightly worse (`+0.06%`), while `v_error` (`-2.36%`) and `obs_error` (`-0.77%`) were slightly better; runtime was faster (`-12.64%`).
+  - Decision: keep baseline as default for strict inverse-target `u_error`; stronger checkpoint can be considered only when runtime dominates.
 
-- Navier-Stokes stronger checkpoint (`e200_b128`) completed matched medium probe (`g16, 32x2`).
-  - Compared to matched baseline medium (`g16, 32x2`): quality degraded across key metrics (`u_error +6.18%`, `v_error +13.77%`, `obs_error +15.67%`, `posterior_quality +11.33%`) while runtime improved (`-9.12%`).
-  - Decision: no full promotion; keep baseline as recommended checkpoint.
+- Navier-Stokes stronger checkpoint (`e200_b128`) completed matched full check (`g16, 128x3`).
+  - Compared to matched baseline full (`g16, 128x3`): quality degraded across key metrics (`u_error +7.97%`, `v_error +11.78%`, `obs_error +9.11%`, `posterior_quality +9.65%`) and runtime was also slightly worse (`+0.66%`).
+  - Decision: no promotion; keep baseline as recommended checkpoint.
 
 ## Cross-Family Pattern
 
