@@ -316,6 +316,34 @@ Additional completed check:
     - `runtime`: `+0.91%` (slower)
   - decision:
     - no full promotion for this stronger Burgers checkpoint.
+- stronger Burgers-BC checkpoint:
+  - `outputs/posterior_projection_burgers_bc_e200_b128/best.pt`
+  - medium `g=16` probe completed:
+    - `outputs/burgers_bc_e200_b128_g16.0/eval_32x2.json`
+  - matched baseline medium:
+    - `outputs/burgers_bc_baseline_g16.0/eval_32x2.json`
+  - stronger vs baseline medium (best-u row):
+    - `u_error`: `+4.88%` (worse)
+    - `v_error`: `-5.28%` (better)
+    - `obs_error`: `-6.94%` (better)
+    - `posterior_quality`: `-0.64%` (better)
+    - `runtime`: `-20.97%` (faster)
+  - decision:
+    - keep baseline default when prioritizing inverse-target `u_error`; stronger checkpoint is a runtime-favoring alternative.
+- stronger Navier-Stokes checkpoint:
+  - `outputs/posterior_projection_navier_stokes_e200_b128/best.pt`
+  - medium `g=16` probe completed:
+    - `outputs/navier_stokes_e200_b128_g16.0/eval_32x2.json`
+  - matched baseline medium:
+    - `outputs/navier_stokes_baseline_g16.0/eval_32x2.json`
+  - stronger vs baseline medium (best-u row):
+    - `u_error`: `+6.18%` (worse)
+    - `v_error`: `+13.77%` (worse)
+    - `obs_error`: `+15.67%` (worse)
+    - `posterior_quality`: `+11.33%` (worse)
+    - `runtime`: `-9.12%` (faster)
+  - decision:
+    - no full promotion for this stronger Navier-Stokes checkpoint.
 
 ```bash
 PYTHONPATH=src .venv/bin/python -u -m posterior_projection.evaluate \

@@ -45,9 +45,18 @@ All of the following families completed full guidance sweeps (`g=0.25,1,2,4,8,12
   - Compared to matched baseline medium (`g16, 32x2`): worse across key recovery metrics (`u_error +2.62%`, `posterior_quality +2.44%`) and slightly slower runtime (`+0.91%`).
   - Decision: no full promotion for this stronger checkpoint.
 
+- Burgers-BC stronger checkpoint (`e200_b128`) completed matched medium probe (`g16, 32x2`).
+  - Compared to matched baseline medium (`g16, 32x2`): `u_error` was worse (`+4.88%`), but `v_error` (`-5.28%`), `obs_error` (`-6.94%`), and `posterior_quality` (`-0.64%`) improved, with faster runtime (`-20.97%`).
+  - Decision: keep baseline as default for strict inverse-target `u_error`, but keep stronger checkpoint as a runtime-favoring alternative.
+
+- Navier-Stokes stronger checkpoint (`e200_b128`) completed matched medium probe (`g16, 32x2`).
+  - Compared to matched baseline medium (`g16, 32x2`): quality degraded across key metrics (`u_error +6.18%`, `v_error +13.77%`, `obs_error +15.67%`, `posterior_quality +11.33%`) while runtime improved (`-9.12%`).
+  - Decision: no full promotion; keep baseline as recommended checkpoint.
+
 ## Cross-Family Pattern
 
 - Across all tested families, stronger observation guidance consistently improves inverse recovery (`u_error`, `v_error`, `obs_error`, `posterior_quality`).
 - `none/none` remains the stability/runtime anchor case.
 - Physical-consistency winners often favor `gauss_newton`, while pure recovery winners often favor `first_order` with frequent projection.
 - Burgers-BC is the main outlier in `u_error` sensitivity (smaller `g16` gain than other families), but still follows the same monotonic improvement trend.
+- Stronger training is not universally beneficial: several families show better runtime but worse reconstruction quality, so checkpoint selection should remain family-specific.
