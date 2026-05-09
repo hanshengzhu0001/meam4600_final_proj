@@ -6,6 +6,23 @@ This repository studies one focused question for inverse PDE posterior sampling:
 
 **Which projection schedule/order is best for posterior quality, physical consistency, runtime, and trajectory stability?**
 
+### Results At a Glance (Front)
+
+Nonlinear elliptic benchmark (`-Delta v + 50 v^3 = u`, `Nx=63`, periodic BC), inverse target: recover full `u` from partial `v`.
+
+| Key result | Value |
+| --- | ---: |
+| Best `u_error` (baseline) | `1.9232` |
+| Best `u_error` (tuned) | `1.5050` |
+| `u_error` improvement | `-21.75%` |
+| `v_error` improvement | `-29.54%` |
+| Best quality policy | `every_5 / gauss_newton` |
+| Best physics policy | `every_step / gauss_newton` |
+| Fastest policy | `none / none` |
+
+![Nonlinear quality-runtime tradeoff](reports/figures/nonlinear_tradeoff_scatter.png)
+![Cross-family guidance benefit](reports/figures/cross_family_u_improvement.png)
+
 ### Report-Only Submission Artifact
 
 - Canvas submission file: `reports/final_project_report.pdf`
