@@ -102,7 +102,7 @@ Best-row `u_error` reduction when increasing guidance from `g=0.25` to `g=16`:
 | Burgers BC | `-9.03%` |
 | Navier-Stokes 1D surrogate | `-24.11%` |
 
-Cross-family conclusion: stronger observation guidance consistently helps inverse recovery, while the best schedule/order remains objective-dependent.
+Cross-family conclusion (stats-based): stronger observation guidance helps inverse recovery in all tested families, with \(u\_error\) reductions of `-18.73%`, `-25.20%`, `-29.84%`, `-26.12%`, `-9.03%`, and `-24.11%` (range: `-9.03%` to `-29.84%`); best schedule/order remains objective-dependent.
 
 ### Reproducibility (Minimal)
 
