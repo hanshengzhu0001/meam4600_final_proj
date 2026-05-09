@@ -56,9 +56,9 @@ Interpretation: winners are objective-dependent. `every_5/gauss_newton` gives th
 
 Interpretation: stronger observation guidance consistently helps inverse recovery across all tested families (range: `-9.03%` to `-29.84%`).
 
-| Nonlinear quality-runtime frontier | Cross-family guidance gains |
-| --- | --- |
-| ![Nonlinear tradeoff](reports/figures/nonlinear_tradeoff_scatter.png) | ![Cross-family gains](reports/figures/cross_family_u_improvement.png) |
+| Gain-vs-cost summary | Nonlinear quality-runtime frontier | Cross-family guidance gains |
+| --- | --- | --- |
+| ![Gain vs cost scorecard](reports/figures/nonlinear_gain_cost_scorecard.png) | ![Nonlinear tradeoff](reports/figures/nonlinear_tradeoff_scatter.png) | ![Cross-family gains](reports/figures/cross_family_u_improvement.png) |
 
 ## Reproducibility (Minimal)
 

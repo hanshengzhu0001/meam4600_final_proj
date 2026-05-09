@@ -281,6 +281,8 @@ def build_gain_cost_scorecard() -> None:
     ax.set_yticks(y)
     ax.set_yticklabels(labels)
     ax.tick_params(axis="y", pad=8)
+    ax.tick_params(axis="y", length=0)
+    ax.spines["left"].set_visible(False)
     ax.invert_yaxis()
     ax.set_xlabel("Relative change vs baseline best row (%)")
     ax.set_title("Nonlinear Elliptic: Inverse-Metric Gains vs Runtime Cost", pad=10)
