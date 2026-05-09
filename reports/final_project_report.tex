@@ -166,7 +166,7 @@ Table~\ref{tab:obj_winners} reports the best policy for each objective under the
 \end{table*}
 
 \noindent
-The objective winners are clearly separated. The quality winner is \texttt{every\_5}/Gauss-Newton with \(\texttt{posterior\_quality}=3.1364\), while the consistency winner is \texttt{every\_step}/Gauss-Newton with \(\texttt{physical\_consistency}=0.000359\). This indicates that more frequent correction helps PDE consistency, but the best composite inverse score is reached with less frequent correction (every 5 steps), likely because it avoids over-correcting intermediate samples. Speed and robustness are dominated by the no-projection baseline (\(0.6086\) s, \(\texttt{trajectory\_stability}=0.0\)), so one single schedule/order is not optimal for all deployment goals.
+\textbf{Interpretation.} The objective winners are clearly separated. The quality winner is \textbf{\texttt{every\_5}/Gauss-Newton} with \(\textbf{\texttt{posterior\_quality}=3.1364}\), while the consistency winner is \textbf{\texttt{every\_step}/Gauss-Newton} with \(\textbf{\texttt{physical\_consistency}=0.000359}\). This indicates that more frequent correction helps PDE consistency, but the best composite inverse score is reached with less frequent correction (every 5 steps), likely because it avoids over-correcting intermediate samples. Speed and robustness are dominated by the no-projection baseline (\(\textbf{0.6086}\) s, \(\textbf{\texttt{trajectory\_stability}=0.0}\)), so one single schedule/order is not optimal for all deployment goals.
 
 Here, ``larger 200-epoch checkpoint'' refers to the stronger \texttt{e200\_big} model, ``strong guidance'' refers to observation-guidance strength \(g=16\), the projection schedule sets correction frequency (\texttt{every\_step} or \texttt{every\_5}), and the projection order sets the correction rule (first-order or Gauss-Newton).
 \insightbox{\textbf{Key result.} Compared with the baseline best row (\(u\_error=1.9232\), \(v\_error=1.2944\), \(obs\_error=1.1504\), \(post\_q=4.3679\), runtime \(=0.7357\) s), the tuned setup (strong guidance + first-order projection every step) reaches \(u\_error=1.5050\), \(v\_error=0.9120\), \(obs\_error=0.8126\), \(post\_q=3.2295\), runtime \(=1.3741\) s. This corresponds to \(-21.75\%\), \(-29.54\%\), \(-29.36\%\), and \(-26.06\%\) improvements, with a \(+86.77\%\) runtime cost.}
@@ -191,8 +191,8 @@ Relative change & \(-21.75\%\) & \(-29.54\%\) & \(-29.36\%\) & \(-26.06\%\) & \(
 }
 \end{table*}
 
-Best inverse rows are compared directly because \(u\_error\) is the primary metric for the inverse target. Row-to-row, \(u\_error\) drops by 0.4182 (\(1.9232 \rightarrow 1.5050\)), \(v\_error\) by 0.3824 (\(1.2944 \rightarrow 0.9120\)), \(obs\_error\) by 0.3378 (\(1.1504 \rightarrow 0.8126\)), and \(post\_q\) by 1.1384 (\(4.3679 \rightarrow 3.2295\)), while runtime increases by 0.6384 s (\(0.7357 \rightarrow 1.3741\)).
-The best inverse-reconstruction setup is strong guidance with first-order projection at every step, possibly because frequent lightweight corrections keep each sample close to the observation-consistent region while avoiding aggressive per-step overcorrection.
+\textbf{Interpretation.} Best inverse rows are compared directly because \(u\_error\) is the primary metric for the inverse target. Row-to-row, \(u\_error\) drops by \(\textbf{0.4182}\) (\(1.9232 \rightarrow 1.5050\)), \(v\_error\) by \(\textbf{0.3824}\) (\(1.2944 \rightarrow 0.9120\)), \(obs\_error\) by \(\textbf{0.3378}\) (\(1.1504 \rightarrow 0.8126\)), and \(post\_q\) by \(\textbf{1.1384}\) (\(4.3679 \rightarrow 3.2295\)), while runtime increases by \(\textbf{0.6384}\) s (\(0.7357 \rightarrow 1.3741\)).
+\textbf{Key takeaway.} The best inverse-reconstruction setup is \textbf{strong guidance + first-order projection at every step}, possibly because frequent lightweight corrections keep each sample close to the observation-consistent region while avoiding aggressive per-step overcorrection.
 
 \begin{figure}[h]
 \centering
@@ -236,7 +236,7 @@ Navier-Stokes 1D surrogate & \(-24.11\%\) \\
 \caption{Cross-family trend of stronger-guidance benefit.}
 \end{figure}
 
-Across families, stronger observation guidance consistently improves inverse recovery, with \(u\_error\) gains of \(-18.73\%\), \(-25.20\%\), \(-29.84\%\), \(-26.12\%\), \(-9.03\%\), and \(-24.11\%\) for linear elliptic, heat, reaction-diffusion, Burgers IC, Burgers BC, and Navier-Stokes surrogate, respectively. Exact schedule/order winners remain objective-specific, matching the nonlinear benchmark.
+\textbf{Interpretation.} Across families, stronger observation guidance consistently improves inverse recovery, with \(u\_error\) gains of \(\textbf{-18.73\%}\), \(\textbf{-25.20\%}\), \(\textbf{-29.84\%}\), \(\textbf{-26.12\%}\), \(\textbf{-9.03\%}\), and \(\textbf{-24.11\%}\) for linear elliptic, heat, reaction-diffusion, Burgers IC, Burgers BC, and Navier-Stokes surrogate, respectively. Exact schedule/order winners remain objective-specific, matching the nonlinear benchmark.
 
 \section{Reflection and Reproducibility}
 \textbf{What worked.} Nonlinear inverse quality improved materially (\(u\_error: 1.9232 \rightarrow 1.5050\), \(v\_error: 1.2944 \rightarrow 0.9120\)), and complete objective-wise ranking tables were produced.\\
@@ -249,7 +249,7 @@ Across families, stronger observation guidance consistently improves inverse rec
 The method was intentionally simplified, which improved interpretability but limits direct comparability to larger benchmark suites. In particular, full-scale reproduction of all external baselines and exhaustive architecture searches were not attempted. A natural next step is to reuse this same evaluation protocol in broader cross-method studies (using \texttt{mmse/smse/fpd} and family-specific constraint errors) while preserving the objective-wise projection analysis developed here.
 
 \section{Conclusion}
-Projection schedule/order is a first-class algorithmic choice in partial-observation inverse PDE sampling. On the proposal benchmark, the strongest inverse recovery is achieved by strong guidance plus every-step first-order projection (\(u\_error=1.5050\), \(v\_error=0.9120\)); best physics consistency is achieved by every-step Gauss-Newton projection (\(0.000359\)); and best runtime/stability is achieved by no projection (0.6086 s, 0.0). Therefore, projection design should match the objective of interest rather than using one fixed policy.
+Projection schedule/order is a first-class algorithmic choice in partial-observation inverse PDE sampling. On the proposal benchmark, the \textbf{strongest inverse recovery} is achieved by strong guidance plus every-step first-order projection (\(\textbf{u\_error=1.5050}\), \(\textbf{v\_error=0.9120}\)); \textbf{best physics consistency} is achieved by every-step Gauss-Newton projection (\(\textbf{0.000359}\)); and \textbf{best runtime/stability} is achieved by no projection (\(\textbf{0.6086}\) s, \(\textbf{0.0}\)). Therefore, projection design should match the objective of interest rather than using one fixed policy.
 
 \begin{thebibliography}{9}
 \bibitem{diffusionpde}
