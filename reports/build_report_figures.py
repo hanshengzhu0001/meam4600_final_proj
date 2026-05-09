@@ -286,14 +286,12 @@ def build_gain_cost_scorecard() -> None:
     ax.set_title("Nonlinear Elliptic: Inverse-Metric Gains vs Runtime Cost", pad=10)
     ax.set_xlim(-35, 95)
 
+    # Put all percentage labels in a clean right-side column for easier scanning.
+    right_label_x = 93.0
     for bar, val in zip(bars, pct_changes):
-        x = bar.get_width()
         y_mid = bar.get_y() + bar.get_height() / 2
         text = f"{val:+.2f}%"
-        if x >= 0:
-            ax.text(x + 1.2, y_mid, text, va="center", ha="left", fontsize=9)
-        else:
-            ax.text(x - 1.2, y_mid, text, va="center", ha="right", fontsize=9)
+        ax.text(right_label_x, y_mid, text, va="center", ha="right", fontsize=9, color="#1f1f1f")
 
     ax.text(
         0.01,
