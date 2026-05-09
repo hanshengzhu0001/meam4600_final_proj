@@ -8,43 +8,35 @@
 \usepackage{booktabs,tabularx,array}
 \usepackage{graphicx}
 \usepackage{xcolor}
-\usepackage{enumitem}
 \usepackage{hyperref}
 \usepackage{caption}
 \usepackage{titlesec}
+\usepackage{enumitem}
 
 \hypersetup{
   colorlinks=true,
-  linkcolor=blue!55!black,
-  citecolor=blue!55!black,
-  urlcolor=blue!55!black
+  linkcolor=blue!45!black,
+  citecolor=blue!45!black,
+  urlcolor=blue!45!black
 }
 
-\definecolor{deepblue}{HTML}{0E2E46}
-\definecolor{accent}{HTML}{2A9D8F}
-\definecolor{softbg}{HTML}{F3F7FA}
+\definecolor{deepblue}{HTML}{17344F}
 \newcolumntype{Y}{>{\raggedright\arraybackslash}X}
-\setlist[itemize]{leftmargin=1.1em,itemsep=0.15em,topsep=0.2em}
 \graphicspath{{figures/}}
 \setlength{\columnsep}{0.24in}
 \setlength{\parindent}{0pt}
+\setlist[itemize]{leftmargin=1.1em,itemsep=0.2em,topsep=0.2em}
 
 \titleformat{\section}{\large\bfseries\color{deepblue}}{\thesection}{0.45em}{}
 \titleformat{\subsection}{\normalsize\bfseries\color{deepblue}}{\thesubsection}{0.4em}{}
-\titlespacing*{\section}{0pt}{1.8ex plus 0.3ex minus 0.2ex}{0.3ex}
-\titlespacing*{\subsection}{0pt}{1.3ex plus 0.3ex minus 0.2ex}{0.25ex}
+\titlespacing*{\section}{0pt}{1.7ex plus 0.2ex minus 0.1ex}{0.5ex}
+\titlespacing*{\subsection}{0pt}{1.2ex plus 0.2ex minus 0.1ex}{0.4ex}
 \captionsetup{font=small,labelfont=bf}
 
-\newcommand{\insightbox}[1]{
-  \begin{center}
-  \setlength{\fboxsep}{4pt}
-  \fcolorbox{accent!80!black}{softbg}{\parbox{0.96\columnwidth}{\small #1}}
-  \end{center}
-}
-
 \title{\textbf{Objective-Aware Projection Policies for Inverse PDE Posterior Sampling}\\
-\normalsize \textit{A Two-Axis Study of Schedule and Order under Partial Observations}}
-\author{Hansheng Zhu\\[-0.2em]\small MEAM 4600 Final Project}
+\normalsize A Reproducible Schedule/Order Study with Cross-Family Validation}
+\author{Hansheng Zhu\\
+\small Department of Mechanical Engineering and Applied Mechanics, University of Pennsylvania}
 \date{May 2026}
 
 \begin{document}
@@ -52,75 +44,70 @@
 \begin{center}
 \href{https://github.com/hanshengzhu0001/meam4600_final_proj}{\textcolor{deepblue}{\large \(\blacktriangleright\) \textbf{GitHub}}}
 \end{center}
-\vspace{-0.6em}
+\vspace{-0.5em}
 
 \begin{abstract}
-This report studies inverse PDE posterior sampling under sparse observations, a setting common in data assimilation and scientific sensing where uncertainty, physical validity, and runtime all matter. DiffusionPDE introduced generative PDE solving under partial observation, and Physics-Constrained Flow Matching (PCFM) introduced projection-based constraint correction during sampling. Building on these ideas, I examine which projection schedule (when to project) and projection order (how strongly to project) best trade off inverse reconstruction quality, physical consistency, runtime, and trajectory stability. The nonlinear elliptic benchmark
-\[
--\Delta v + \kappa v^3 = u,\quad \kappa=50,\quad N_x=63,
-\]
-is used with periodic boundary conditions, where full \(u\) is recovered from sparse \(v\) observations. Relative to baseline, the best tuned setting improves \(u\_error\) by \(\mathbf{21.75\%}\) (\(1.9232 \rightarrow 1.5050\)) with a clear quality-runtime tradeoff. I then extend the same protocol across additional PDE families, where guidance gains range from \(-9.03\%\) (Burgers BC) to \(-29.84\%\) (reaction-diffusion). Across both studies, projection policy is objective-aware rather than globally fixed. More broadly, the results show that schedule/order is a practical control knob for flow-matching and other constrained generative samplers, because correction effort can be allocated across the trajectory to match application priorities.
+Inverse PDE problems under partial observations are central to scientific sensing and data assimilation, where one must jointly balance reconstruction quality, physical consistency, and computational cost. DiffusionPDE formalized generative PDE solving in partial-observation settings \cite{diffusionpde}, while Physics-Constrained Flow Matching (PCFM) introduced projection-based hard-constraint correction during sampling \cite{pcfm}. This report studies a simplified but rigorous question: which projection \emph{schedule} (when correction is applied) and projection \emph{order} (how correction is computed) are best for different downstream objectives. On the nonlinear elliptic benchmark \(-\Delta v + 50v^3 = u\) with periodic boundary conditions and \(N_x=63\), the strongest inverse-reconstruction setting improves \(u\_error\) from \(1.9232\) to \(1.5050\) (\(-21.75\%\)) and \(v\_error\) from \(1.2944\) to \(0.9120\) (\(-29.54\%\)), with an \(+86.77\%\) runtime increase. Objective-wise winners are distinct: best posterior quality is achieved by \texttt{every\_5}/Gauss-Newton, best physical consistency by \texttt{every\_step}/Gauss-Newton, and best runtime/stability by no projection. The same protocol is then applied to additional PDE families, where stronger guidance improves best-row \(u\_error\) by \(9.03\%\) to \(29.84\%\). The results support an objective-aware policy design principle rather than one universal projection setting.
 \end{abstract}
-\vspace{-0.4em}
+\vspace{-0.35em}
+\textbf{Keywords:} inverse PDE sampling; physics-constrained flow matching; projection schedule/order; partial observations; objective-aware inference
+\vspace{0.2em}
 
-\section{Concepts Used}
-MEAM 4600 concepts used include PDE modeling, inverse formulation under partial observations, residual-based numerical correction, and objective-wise tradeoff analysis. I use these concepts to structure model design, inverse inference, and objective-wise evaluation.
+\section{Introduction}
+This project examines posterior sampling for inverse PDE recovery when only sparse observations are available. In this setting, a single deterministic estimate is usually insufficient, because multiple latent fields can match the observed subset. A generative posterior sampler is therefore used, followed by physics-aware correction to maintain consistency with governing equations.
 
-Core formulas:
-\begin{itemize}
-  \item PDE model: \(-\Delta v + 50v^3 = u\) with periodic BC.
-  \item Inverse target: recover full \(u\) from partial \(v\) observations.
-  \item Residual: \(r(u,v)= -\Delta v + 50v^3 - u\).
-  \item Sampling + guidance:
-\[
-x_{k+1}=x_k+\Delta t\,f_\theta(x_k,t_k)-g\nabla_x\mathcal{L}_{\mathrm{obs}}(x_k).
-\]
-  \item Projection:
-\[
+The method design is motivated by two foundational directions. DiffusionPDE \cite{diffusionpde} demonstrates generative inverse solving under partial observations. PCFM \cite{pcfm} introduces projection updates inside flow-based sampling trajectories, enabling hard-constraint enforcement. Building on these ideas, the central question here is:
+\begin{quote}
+\emph{How should projection be scheduled and computed to best satisfy different practical objectives?}
+\end{quote}
+
+The report focuses on understanding mechanisms and tradeoffs, not on claiming state-of-the-art performance.
+
+\section{Problem Setup and Mathematical Formulation}
+The primary benchmark is
+\begin{equation}
+\begin{aligned}
+-\Delta v + 50v^3 &= u,\qquad x\in\Omega,\\
+\text{periodic BC},\qquad N_x&=63.
+\end{aligned}
+\end{equation}
+The inverse target is full-field \(u\), while only partial entries of \(v\) are observed. Let \(M\) be the observation mask and \(y\) the observed data. The observation loss is
+\begin{equation}
+\mathcal{L}_{obs}(u,v)=\frac{\|M\odot(v-y)\|_2^2}{\max(1,|M|)}.
+\end{equation}
+Define the residual
+\begin{equation}
+r(u,v)=-\Delta v+50v^3-u.
+\end{equation}
+
+In this report, both \(u\_error\) and \(v\_error\) are necessary: \(u\_error\) measures the inverse target directly, while \(v\_error\) measures full-state reconstruction quality, including unobserved regions of \(v\). This distinction is critical in partial-observation inverse settings.
+
+\section{Methodology}
+The joint state is \(x=[u;v]\in\mathbb{R}^{2N_x}\). A flow-matching prior \cite{flowmatching} is trained on joint oracle pairs and sampled with observation guidance:
+\begin{equation}
+x_{k+1}=x_k+\Delta t\,f_\theta(x_k,t_k)-g\nabla_x\mathcal{L}_{obs}(x_k),
+\end{equation}
+where \(g\) is guidance strength.
+
+Projection is optionally applied at each chosen schedule step:
+\begin{equation}
 x_{k+1}\leftarrow x_{k+1}-P_q^{-1}(x_{k+1})\,r(x_{k+1}),
-\]
-with first-order and Gauss-Newton variants.
-\end{itemize}
-
-\section{Problem Framing}
-In inverse PDE settings, sparse measurements make recovery inherently ambiguous: many full fields can match the same observed subset. Posterior sampling is therefore used instead of a single deterministic predictor, so uncertainty can be represented and then guided toward physically plausible solutions.
-
-Given that context, the research question is: \emph{which projection schedule and projection order are best for each target objective?} The focus is on mechanism and tradeoffs, so the goal is principled comparison rather than state-of-the-art claims.
-
-\section{Method Summary}
-The benchmark studied is
-\[
--\Delta v + 50v^3 = u,\qquad N_x=63,\qquad \text{periodic BC}.
-\]
-Only \(10\%\) of \(v\) is observed, and full \(u\) is recovered. This observation mask is kept fixed across comparisons so schedule/order remains the main changing factor; I keep this fixed-mask protocol to isolate schedule/order effects cleanly.
-
-The joint state is represented as \(x=[u;v]\in\mathbb{R}^{2N_x}\), with residual
-\[
-r(x)= -\Delta v + 50v^3 - u.
-\]
-At each sampling step, the state first moves along the learned flow with observation guidance:
-\[
-x_{k+1}=x_k+\Delta t\,f_\theta(x_k,t_k)-g\,\nabla_x\mathcal{L}_{obs}(x_k),
-\]
-then optional projection is applied:
-\[
-x_{k+1}\leftarrow x_{k+1}-P_q^{-1}(x_{k+1})\,r(x_{k+1}),
-\]
-where schedule \(S\) controls \emph{when} projection is applied, and order \(q\in\{\texttt{first\_order},\texttt{gauss\_newton}\}\) controls \emph{how} each correction is computed. These two axes are separated because timing and correction strength affect different failure modes (instability, over-correction, or weak physics enforcement).
-
-The method is intentionally simplified: one prior family, one inverse formulation, and controlled schedule/order/guidance sweeps. This scope keeps conclusions interpretable and reproducible.
+\end{equation}
+where \(S\) (schedule) controls \emph{when} projection is applied and \(q\in\{\texttt{first\_order},\texttt{gauss\_newton}\}\) controls \emph{how} correction is computed.
 
 \begin{figure*}[t]
 \centering
 \includegraphics[width=0.90\textwidth]{workflow_flowchart.png}
-\caption{Workflow from PDE-family data to objective-wise schedule/order ranking. Projection is inserted inside the sampling trajectory and swept systematically.}
+\caption{Workflow from PDE-family data to objective-wise projection-policy selection. The schedule/order sweep is isolated while keeping inverse setup and evaluation logic fixed.}
 \label{fig:workflow}
 \end{figure*}
 
-\insightbox{\textbf{Baseline definition.} Baseline means the default flow-matching model trained for 80 epochs at default width/depth, evaluated on the same projection grid. This keeps the comparison fair: gains come from tuning and projection policy, not from framework changes.}
+\section{Experimental Protocol}
+Baseline uses the default 80-epoch checkpoint and default model width/depth. Tuned runs use stronger training and guidance sweeps, with the strongest nonlinear analysis at \(\texttt{e200\_big}\) and \(g=16\).
 
-\section{Metrics and Protocol}
-To make the evaluation logic explicit before presenting numbers, metric roles are first mapped to their exact function in the inverse task.
+Nonlinear main-study evaluation uses 128 posterior samples and 3 observation seeds. Projection schedule candidates are
+\texttt{none}, \texttt{final\_only}, \texttt{every\_step}, \texttt{every\_2}, \texttt{every\_5}, \texttt{late\_only}, and \texttt{adaptive\_residual}.
+
 \begin{table}[h]
 \centering
 \small
@@ -129,50 +116,41 @@ To make the evaluation logic explicit before presenting numbers, metric roles ar
 \toprule
 \textbf{Metric} & \textbf{Interpretation} \\
 \midrule
-\texttt{u\_error} & Primary inverse target quality \\
-\texttt{v\_error} & Full-state reconstruction, incl. unobserved regions \\
-\texttt{obs\_error} & Fit on observed entries only \\
-\texttt{posterior\_quality} & Composite ranking score \\
+\texttt{u\_error} & Primary inverse-target accuracy \\
+\texttt{v\_error} & Full-state reconstruction, incl.\ unobserved \(v\) \\
+\texttt{obs\_error} & Fit quality on observed subset \\
+\texttt{posterior\_quality} & Composite posterior-ranking score \\
 \texttt{physical\_consistency} & Pre-cleanup PDE consistency \\
-\texttt{runtime} / \texttt{trajectory\_stability} & Efficiency / robustness \\
-\texttt{mmse, smse, fpd} & Distribution-level comparison metrics \\
-\texttt{ce\_ic, ce\_bc, ce\_cl} & Constraint-specific errors (N/A when inapplicable) \\
+\texttt{runtime}, \texttt{trajectory\_stability} & Efficiency and numerical robustness \\
+\texttt{mmse}, \texttt{smse}, \texttt{fpd} & Distribution-level metrics (pipeline support added) \\
+\texttt{ce\_ic}, \texttt{ce\_bc}, \texttt{ce\_cl} & Family-specific constraint errors (N/A if not applicable) \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
-\noindent
-Evaluation uses 128 samples \(\times\) 3 observation seeds in the nonlinear main study. Observation-guidance strength is swept up to 16, then baseline is compared with a stronger checkpoint (\texttt{e200\_big}: 200 epochs, larger model width/depth) under identical settings. This isolates whether gains come from training, guidance strength, or projection policy.
-
-\section{Results: Nonlinear Elliptic}
+\section{Results: Nonlinear Elliptic Benchmark}
 \subsection{Objective-wise winners}
-Table~\ref{tab:obj_winners} reports the best policy for each objective under the same evaluation setup (\(128\times3\), strong-guidance runs included).
 \begin{table*}[t]
 \centering
 \normalsize
-\renewcommand{\arraystretch}{1.16}
-\caption{Best schedule/order by objective.}
+\renewcommand{\arraystretch}{1.14}
+\caption{Best schedule/order by objective (\(128\times3\) evaluation grid).}
 \label{tab:obj_winners}
 \begin{tabularx}{0.98\textwidth}{@{}lXl r@{}}
 \toprule
 \textbf{Objective} & \textbf{Winning run} & \textbf{Best policy} & \textbf{Value} \\
 \midrule
-\texttt{posterior\_quality} & larger 200-epoch checkpoint + strong guidance & project every 5 steps / Gauss-Newton correction & 3.1364 \\
-\texttt{physical\_consistency} & larger 200-epoch checkpoint + strong guidance & project every step / Gauss-Newton correction & 0.000359 \\
-\texttt{runtime} & baseline (default 80-epoch checkpoint) & no projection & 0.6086 s \\
-\texttt{trajectory\_stability} & baseline (default 80-epoch checkpoint) & no projection & 0.0 \\
+\texttt{posterior\_quality} & \texttt{e200\_big} + strong guidance & \texttt{every\_5 / gauss\_newton} & 3.1364 \\
+\texttt{physical\_consistency} & \texttt{e200\_big} + strong guidance & \texttt{every\_step / gauss\_newton} & 0.000359 \\
+\texttt{runtime} & baseline checkpoint & \texttt{none / none} & 0.6086 s \\
+\texttt{trajectory\_stability} & baseline checkpoint & \texttt{none / none} & 0.0 \\
 \bottomrule
 \end{tabularx}
 \end{table*}
 
-\noindent
-\textbf{Interpretation.} The objective winners are clearly separated. The quality winner is \textbf{\texttt{every\_5}/Gauss-Newton} with \(\textbf{\texttt{posterior\_quality}=3.1364}\), while the consistency winner is \textbf{\texttt{every\_step}/Gauss-Newton} with \(\textbf{\texttt{physical\_consistency}=0.000359}\). This indicates that more frequent correction helps PDE consistency, but the best composite inverse score is reached with less frequent correction (every 5 steps), likely because it avoids over-correcting intermediate samples. Speed and robustness are dominated by the no-projection baseline (\(\textbf{0.6086}\) s, \(\textbf{\texttt{trajectory\_stability}=0.0}\)), so one single schedule/order is not optimal for all deployment goals.
+The winners are numerically distinct rather than tied, which confirms that projection policy should be selected per objective. A single global policy is suboptimal when deployment priorities differ.
 
-Here, ``larger 200-epoch checkpoint'' refers to the stronger \texttt{e200\_big} model, ``strong guidance'' refers to observation-guidance strength \(g=16\), the projection schedule sets correction frequency (\texttt{every\_step} or \texttt{every\_5}), and the projection order sets the correction rule (first-order or Gauss-Newton).
-\insightbox{\textbf{Key result.} Compared with the baseline best row (\(u\_error=1.9232\), \(v\_error=1.2944\), \(obs\_error=1.1504\), \(post\_q=4.3679\), runtime \(=0.7357\) s), the tuned setup (strong guidance + first-order projection every step) reaches \(u\_error=1.5050\), \(v\_error=0.9120\), \(obs\_error=0.8126\), \(post\_q=3.2295\), runtime \(=1.3741\) s. This corresponds to \(-21.75\%\), \(-29.54\%\), \(-29.36\%\), and \(-26.06\%\) improvements, with a \(+86.77\%\) runtime cost.}
-
-\subsection{Best inverse row vs baseline}
-To evaluate inverse recovery directly, the best-\(u\) row from baseline is compared against the best-\(u\) row after tuning.
+\subsection{Best inverse row versus baseline}
 \begin{table*}[t]
 \centering
 \normalsize
@@ -183,7 +161,7 @@ To evaluate inverse recovery directly, the best-\(u\) row from baseline is compa
 \textbf{Setting} & \(\mathbf{u\_err}\) & \(\mathbf{v\_err}\) & \(\mathbf{obs\_err}\) & \(\mathbf{post\_q}\) & \(\mathbf{runtime}\) \\
 \midrule
 Baseline best row & 1.9232 & 1.2944 & 1.1504 & 4.3679 & 0.7357 s \\
-Best tuned (strong guidance, projection every step, first-order correction) & 1.5050 & 0.9120 & 0.8126 & 3.2295 & 1.3741 s \\
+Best tuned row (\texttt{g=16}, \texttt{every\_step/first\_order}) & 1.5050 & 0.9120 & 0.8126 & 3.2295 & 1.3741 s \\
 \midrule
 Relative change & \(-21.75\%\) & \(-29.54\%\) & \(-29.36\%\) & \(-26.06\%\) & \(+86.77\%\) \\
 \bottomrule
@@ -191,31 +169,37 @@ Relative change & \(-21.75\%\) & \(-29.54\%\) & \(-29.36\%\) & \(-26.06\%\) & \(
 }
 \end{table*}
 
-\textbf{Interpretation.} Best inverse rows are compared directly because \(u\_error\) is the primary metric for the inverse target. Row-to-row, \(u\_error\) drops by \(\textbf{0.4182}\) (\(1.9232 \rightarrow 1.5050\)), \(v\_error\) by \(\textbf{0.3824}\) (\(1.2944 \rightarrow 0.9120\)), \(obs\_error\) by \(\textbf{0.3378}\) (\(1.1504 \rightarrow 0.8126\)), and \(post\_q\) by \(\textbf{1.1384}\) (\(4.3679 \rightarrow 3.2295\)), while runtime increases by \(\textbf{0.6384}\) s (\(0.7357 \rightarrow 1.3741\)).
-\textbf{Key takeaway.} The best inverse-reconstruction setup is \textbf{strong guidance + first-order projection at every step}, possibly because frequent lightweight corrections keep each sample close to the observation-consistent region while avoiding aggressive per-step overcorrection.
+\textbf{Key result.} The strongest inverse-reconstruction configuration is \texttt{every\_step/first\_order} under strong guidance, with absolute improvements
+\(u\_error: 1.9232\rightarrow 1.5050\), \(v\_error: 1.2944\rightarrow 0.9120\), and \(obs\_error: 1.1504\rightarrow 0.8126\).
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\columnwidth]{nonlinear_gain_cost_scorecard.png}
+\caption{Relative changes versus baseline for best inverse row. Error metrics decrease while runtime increases, quantifying the gain-cost tradeoff directly.}
+\label{fig:gaincost}
+\end{figure}
 
 \begin{figure}[h]
 \centering
 \includegraphics[width=\columnwidth]{nonlinear_guidance_trend.png}
-\caption{Stronger guidance consistently improves reconstruction metrics.}
+\caption{Guidance sweep on nonlinear elliptic benchmark. Higher guidance consistently improves inverse reconstruction metrics.}
+\label{fig:guidance}
 \end{figure}
 
 \begin{figure*}[t]
 \centering
 \includegraphics[width=0.76\textwidth]{nonlinear_tradeoff_scatter.png}
-\caption{Quality-runtime frontier at guidance strength 16. Color shows correction rule, marker shows projection schedule, and rings mark best inverse quality, fastest runtime, and best physics consistency.}
+\caption{Quality-runtime frontier at \(g=16\). Marker shape indicates schedule, color indicates projection order.}
+\label{fig:tradeoff}
 \end{figure*}
 
-\insightbox{\textbf{Key nonlinear conclusion.} If the goal is best inverse reconstruction, project at every step with first-order correction (\(u\_error=1.5050\), \(v\_error=0.9120\)). If the goal is best physics consistency, use Gauss-Newton-heavy correction, because curvature-aware updates reduce nonlinear PDE residual more strongly per correction; in this study, that policy achieved \(physical\_consistency=0.000359\). If the goal is speed or maximum stability, skip projection (runtime \(=0.6086\) s, trajectory\_stability \(=0.0\)).}
-
 \section{Results: Multi-Family Extension}
-To test whether the nonlinear finding is specific to one PDE, the same pipeline is applied to linear elliptic, heat, reaction-diffusion, Burgers (IC/BC), and a 1D Navier-Stokes surrogate. The same evaluation logic is kept so cross-family conclusions remain comparable.
+The same evaluation protocol is applied to linear elliptic, heat equation, reaction-diffusion, Burgers (IC/BC), and a 1D Navier-Stokes surrogate.
 
-The following table reports how much inverse-target error drops as guidance strength increases from weak to strong.
 \begin{table}[h]
 \centering
 \small
-\caption{Best-row \(u\_error\) gain from \(g=0.25\) to \(g=16\).}
+\caption{Best-row \(u\_error\) change from \(g=0.25\) to \(g=16\).}
 \begin{tabular}{@{}lr@{}}
 \toprule
 \textbf{Family} & \textbf{\(u\_error\) reduction} \\
@@ -233,31 +217,42 @@ Navier-Stokes 1D surrogate & \(-24.11\%\) \\
 \begin{figure}[h]
 \centering
 \includegraphics[width=\columnwidth]{cross_family_u_improvement.png}
-\caption{Cross-family trend of stronger-guidance benefit.}
+\caption{Cross-family inverse-recovery gains from stronger guidance.}
+\label{fig:crossfamily}
 \end{figure}
 
-\textbf{Interpretation.} Across families, stronger observation guidance consistently improves inverse recovery, with \(u\_error\) gains of \(\textbf{-18.73\%}\), \(\textbf{-25.20\%}\), \(\textbf{-29.84\%}\), \(\textbf{-26.12\%}\), \(\textbf{-9.03\%}\), and \(\textbf{-24.11\%}\) for linear elliptic, heat, reaction-diffusion, Burgers IC, Burgers BC, and Navier-Stokes surrogate, respectively. Exact schedule/order winners remain objective-specific, matching the nonlinear benchmark.
+\textbf{Interpretation.} Stronger guidance helps every tested family, with gains ranging from \(-9.03\%\) to \(-29.84\%\), supporting the robustness of guidance tuning beyond one PDE type.
 
-\section{Reflection and Reproducibility}
-\textbf{What worked.} Nonlinear inverse quality improved materially (\(u\_error: 1.9232 \rightarrow 1.5050\), \(v\_error: 1.2944 \rightarrow 0.9120\)), and complete objective-wise ranking tables were produced.\\
-\textbf{What did not always work.} Better reconstruction required higher compute (runtime \(0.7357 \rightarrow 1.3741\) s), and larger/longer training was not universally better across families.\\
-\textbf{What I learned.} Projection policy should be selected by objective: every-step first-order gave best inverse recovery, every-step Gauss-Newton gave best physics consistency (0.000359), and no projection gave best runtime/stability.
+\section{Discussion}
+Three practical conclusions follow from the results.
+\begin{itemize}
+  \item For best inverse reconstruction, strong guidance with frequent first-order projection is most effective (\(u\_error=1.5050\), \(v\_error=0.9120\)).
+  \item For strongest physical consistency, Gauss-Newton projection at every step performs best (\(0.000359\)).
+  \item For strict runtime/stability budgets, no projection remains preferred (\(0.6086\) s, \(\texttt{trajectory\_stability}=0.0\)).
+\end{itemize}
+This objective-dependent pattern matches PCFM intuition \cite{pcfm}: projection is a control mechanism, and the correction policy should be tuned to the deployment target rather than fixed a priori.
 
-\textbf{Attribution and responsibility.} Existing repository components (especially \texttt{src/chonkdiff}) were used as a numerical backend, and the posterior-projection study was implemented/extended in \texttt{src/posterior\_projection}. LLM assistance was used for coding/report drafting, and metric values, commands, and final conclusions were manually verified before submission.
+\section{Limitations and Reproducibility}
+The study intentionally prioritizes interpretability and reproducibility over exhaustive benchmarking. Full cross-method reproduction of all published baselines is outside scope. Nonetheless, all experiments are script-driven, metric definitions are explicit, and artifacts are tracked in the repository \cite{repo}.
 
-\section{Limitations and Next Steps}
-The method was intentionally simplified, which improved interpretability but limits direct comparability to larger benchmark suites. In particular, full-scale reproduction of all external baselines and exhaustive architecture searches were not attempted. A natural next step is to reuse this same evaluation protocol in broader cross-method studies (using \texttt{mmse/smse/fpd} and family-specific constraint errors) while preserving the objective-wise projection analysis developed here.
+Existing backend components in \texttt{src/chonkdiff} are reused for oracle/benchmark generation, while posterior-projection implementation and sweeps are implemented in \texttt{src/posterior\_projection}. LLM assistance was used for coding and drafting, and all reported metrics were manually verified.
 
 \section{Conclusion}
-Projection schedule/order is a first-class algorithmic choice in partial-observation inverse PDE sampling. On the proposal benchmark, the \textbf{strongest inverse recovery} is achieved by strong guidance plus every-step first-order projection (\(\textbf{u\_error=1.5050}\), \(\textbf{v\_error=0.9120}\)); \textbf{best physics consistency} is achieved by every-step Gauss-Newton projection (\(\textbf{0.000359}\)); and \textbf{best runtime/stability} is achieved by no projection (\(\textbf{0.6086}\) s, \(\textbf{0.0}\)). Therefore, projection design should match the objective of interest rather than using one fixed policy.
+Projection schedule and order are first-class design choices in partial-observation inverse PDE sampling. On the nonlinear benchmark, the best inverse policy improves \(u\_error\) by \(21.75\%\) and \(v\_error\) by \(29.54\%\), while best physics and best runtime are attained by different policies. The central implication is methodological: projection should be treated as an objective-aware policy variable, not a fixed post-processing step.
 
 \begin{thebibliography}{9}
 \bibitem{diffusionpde}
-J. Huang, G. Yang, Z. Wang, and J. J. Park, \href{https://arxiv.org/abs/2406.17763}{\emph{DiffusionPDE: Generative PDE-Solving Under Partial Observation}}, 2024.
+J. Huang, G. Yang, Z. Wang, and J. J. Park, \href{https://proceedings.neurips.cc/paper_files/paper/2024/hash/eb3878c1dcbfff9ee95d5d033e5f5942-Abstract-Conference.html}{\emph{DiffusionPDE: Generative PDE-Solving Under Partial Observation}}, NeurIPS 2024.
+
 \bibitem{pcfm}
 U. Utkarsh, P. Cai, A. Edelman, R. Gomez-Bombarelli, and C. V. Rackauckas, \href{https://arxiv.org/abs/2506.04171}{\emph{Physics-Constrained Flow Matching: Sampling Generative Models with Hard Constraints}}, 2025.
+
 \bibitem{flowmatching}
-Y. Lipman, R. T. Q. Chen, H. Ben-Hamu, M. Nickel, and M. Le, \href{https://arxiv.org/abs/2210.02747}{\emph{Flow Matching for Generative Modeling}}, 2022.
+Y. Lipman, R. T. Q. Chen, H. Ben-Hamu, M. Nickel, and M. Le, \href{https://arxiv.org/abs/2210.02747}{\emph{Flow Matching for Generative Modeling}}, ICLR 2023.
+
+\bibitem{pcfmcode}
+P. Cai and collaborators, \href{https://github.com/cpfpengfei/PCFM}{\emph{Physics-Constrained Flow Matching: code repository}}.
+
 \bibitem{repo}
 H. Zhu and collaborators, \href{https://github.com/hanshengzhu0001/meam4600_final_proj}{\emph{MEAM4600 Final Project Repository: Posterior Projection for PDE Generative Sampling}}.
 \end{thebibliography}

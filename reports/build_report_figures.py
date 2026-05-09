@@ -255,12 +255,59 @@ def build_cross_family_bar() -> None:
     plt.close(fig)
 
 
+def build_gain_cost_scorecard() -> None:
+    baseline = best_u_row(ROOT / "outputs/posterior_projection_baseline/eval_full.json")
+    tuned = best_u_row(ROOT / "outputs/guidance_big_g16.0/eval_full.json")
+
+    metric_keys = [
+        ("u_error", "u_error"),
+        ("v_error", "v_error"),
+        ("obs_error", "obs_error"),
+        ("posterior_quality", "post_q"),
+        ("runtime", "runtime"),
+    ]
+    labels = [v for _, v in metric_keys]
+    pct_changes = []
+    for key, _ in metric_keys:
+        b = baseline[key]
+        t = tuned[key]
+        pct_changes.append((t - b) / max(abs(b), 1e-12) * 100.0)
+
+    colors = ["#2166ac", "#1f78b4", "#33a6cc", "#41b6c4", "#b2182b"]
+    fig, ax = plt.subplots(figsize=(8.4, 4.7))
+    y = list(range(len(labels)))
+    bars = ax.barh(y, pct_changes, color=colors, edgecolor="none", height=0.66)
+    ax.axvline(0.0, color="#333333", linewidth=1.2)
+    ax.set_yticks(y)
+    ax.set_yticklabels(labels)
+    ax.invert_yaxis()
+    ax.set_xlabel("Relative change vs baseline best row (%)")
+    ax.set_title("Nonlinear Elliptic: Inverse-Metric Gains vs Runtime Cost", pad=10)
+    ax.set_xlim(-35, 95)
+
+    for bar, val in zip(bars, pct_changes):
+        x = bar.get_width()
+        y_mid = bar.get_y() + bar.get_height() / 2
+        text = f"{val:+.2f}%"
+        if x >= 0:
+            ax.text(x + 1.2, y_mid, text, va="center", ha="left", fontsize=9)
+        else:
+            ax.text(x - 1.2, y_mid, text, va="center", ha="right", fontsize=9)
+
+    ax.text(-33.5, len(labels) - 0.35, "left = better for error metrics", fontsize=8.3, color="#35556f")
+    ax.text(37.0, len(labels) - 0.35, "right = higher runtime cost", fontsize=8.3, color="#7a2f2f")
+    fig.tight_layout()
+    fig.savefig(FIGDIR / "nonlinear_gain_cost_scorecard.png", bbox_inches="tight")
+    plt.close(fig)
+
+
 def main() -> None:
     configure_style()
     build_nonlinear_guidance_trend()
     build_tradeoff_scatter()
     build_workflow_flowchart()
     build_cross_family_bar()
+    build_gain_cost_scorecard()
     print(f"Wrote figures to {FIGDIR}")
 
 
