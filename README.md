@@ -1,5 +1,127 @@
 # MEAM 4600 Final Project: Posterior Projection for PDE Generative Sampling
 
+## Start Here (Professor/Reviewer Quick View)
+
+This repository studies one focused question for inverse PDE posterior sampling:
+
+**Which projection schedule/order is best for posterior quality, physical consistency, runtime, and trajectory stability?**
+
+### Report-Only Submission Artifact
+
+- Canvas submission file: `reports/final_project_report.pdf`
+- This PDF is self-contained and includes:
+  - foundational-paper motivation,
+  - simplified method implementation details,
+  - scientific application results,
+  - successes/failures/lessons,
+  - attribution and reproducibility notes.
+
+### Course-Guideline Coverage (MEAM 4600)
+
+- Topic aligned with student focus: inverse PDE + physics-aware generative sampling.
+- Foundational papers used first: DiffusionPDE + PCFM.
+- Simplified method implemented: one flow-matching + projection schedule/order framework.
+- Scientific application: nonlinear elliptic inverse recovery (+ multi-family extension).
+- Findings documented with successes, failures, and lessons: see final report.
+- Attribution and reproducibility explicitly documented in report and repository.
+
+### Quick Links
+
+- Final report PDF: [`reports/final_project_report.pdf`](reports/final_project_report.pdf)
+- Final report LaTeX source: [`reports/final_project_report.tex`](reports/final_project_report.tex)
+- Nonlinear-elliptic study summary: [`reports/final_projection_study_summary.md`](reports/final_projection_study_summary.md)
+- Multi-family extension summary: [`reports/multifamily_extension_summary.md`](reports/multifamily_extension_summary.md)
+- Main report figures:
+  - [`reports/figures/workflow_flowchart.png`](reports/figures/workflow_flowchart.png)
+  - [`reports/figures/nonlinear_guidance_trend.png`](reports/figures/nonlinear_guidance_trend.png)
+  - [`reports/figures/nonlinear_tradeoff_scatter.png`](reports/figures/nonlinear_tradeoff_scatter.png)
+  - [`reports/figures/cross_family_u_improvement.png`](reports/figures/cross_family_u_improvement.png)
+
+### Latest Tracked Results (as of 2026-05-07)
+
+#### Nonlinear Elliptic Main Benchmark
+
+PDE:
+```text
+-Delta v + 50 v^3 = u,   Nx = 63,   periodic BC
+```
+Inverse setting: recover full `u` from partial observations of `v`.
+
+Objective-wise winners from full-table comparisons:
+
+| Objective | Winning run | Best schedule/order | Value |
+| --- | --- | --- | ---: |
+| `posterior_quality` | `e200_big + g=16` | `every_5 / gauss_newton` | `3.1364` |
+| `physical_consistency` | `e200_big + g=16` | `every_step / gauss_newton` | `0.000359` |
+| `runtime` | baseline | `none / none` | `0.6086 s` |
+| `trajectory_stability` | baseline | `none / none` | `0.0` |
+
+Best inverse row (`u_error`) vs baseline:
+
+| Metric | Baseline best row | Best tuned row (`g=16`, `every_step/first_order`) | Relative change |
+| --- | ---: | ---: | ---: |
+| `u_error` | `1.9232` | `1.5050` | `-21.75%` |
+| `v_error` | `1.2944` | `0.9120` | `-29.54%` |
+| `obs_error` | `1.1504` | `0.8126` | `-29.36%` |
+| `posterior_quality` | `4.3679` | `3.2295` | `-26.06%` |
+| `runtime` | `0.7357 s` | `1.3741 s` | `+86.77%` |
+
+Interpretation: reconstruction quality improves materially, with a runtime tradeoff.
+
+#### Multi-Family Extension Snapshot
+
+Best-row `u_error` reduction when increasing guidance from `g=0.25` to `g=16`:
+
+| Family | `u_error` reduction |
+| --- | ---: |
+| Linear elliptic | `-18.73%` |
+| Heat equation | `-25.20%` |
+| Reaction-diffusion | `-29.84%` |
+| Burgers IC | `-26.12%` |
+| Burgers BC | `-9.03%` |
+| Navier-Stokes 1D surrogate | `-24.11%` |
+
+Cross-family conclusion: stronger observation guidance consistently helps inverse recovery, while the best schedule/order remains objective-dependent.
+
+### Reproducibility (Minimal)
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+```bash
+PYTHONPATH=src python -m unittest discover -s tests
+```
+
+```bash
+PYTHONPATH=src python -m chonkdiff.generate_dataset --config configs/chonkdiff_elliptic.yaml
+PYTHONPATH=src python -m posterior_projection.train --config configs/posterior_projection.yaml
+PYTHONPATH=src python -m posterior_projection.evaluate \
+  --checkpoint outputs/posterior_projection_baseline/best.pt \
+  --num-samples 128 --num-observation-seeds 3 \
+  --json-out outputs/posterior_projection_baseline/eval_full.json \
+  --csv-out outputs/posterior_projection_baseline/eval_full.csv
+```
+
+### Quick Verification Checklist
+
+- Tests pass (`24/24`): `PYTHONPATH=src python -m unittest discover -s tests`
+- Final report exists: `reports/final_project_report.pdf`
+- Core nonlinear summary exists: `reports/final_projection_study_summary.md`
+- Multi-family summary exists: `reports/multifamily_extension_summary.md`
+
+### Data/Results Tracking Policy
+
+- Tracked, reviewer-facing summaries live in `reports/*.md` and `reports/final_project_report.pdf`.
+- Large run artifacts (JSON/CSV/checkpoints) are generated under `outputs/` and are usually gitignored due size.
+- The key numerical conclusions are mirrored in tables above and in:
+  - `reports/final_projection_study_summary.md`
+  - `reports/multifamily_extension_summary.md`
+
+## Legacy Technical Notes
+
 This repository is the standalone final-project codebase for studying one research question:
 
 Which projection schedule and which projection order are best for posterior quality, physical consistency, runtime, and trajectory stability in PDE generative sampling?
