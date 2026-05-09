@@ -146,13 +146,14 @@ Evaluation uses 128 samples \(\times\) 3 observation seeds in the nonlinear main
 
 \section{Results: Nonlinear Elliptic}
 \subsection{Objective-wise winners}
-The table below gives the best projection policy per objective under one fixed evaluation setup.
-\begin{table}[h]
+Table~\ref{tab:obj_winners} reports the best policy for each objective under the same evaluation setup (\(128\times3\), strong-guidance runs included).
+\begin{table*}[t]
 \centering
-\small
+\normalsize
+\renewcommand{\arraystretch}{1.16}
 \caption{Best schedule/order by objective.}
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{@{}llll@{}}
+\label{tab:obj_winners}
+\begin{tabularx}{0.98\textwidth}{@{}lXl r@{}}
 \toprule
 \textbf{Objective} & \textbf{Winning run} & \textbf{Best policy} & \textbf{Value} \\
 \midrule
@@ -161,13 +162,13 @@ The table below gives the best projection policy per objective under one fixed e
 \texttt{runtime} & baseline (default 80-epoch checkpoint) & no projection & 0.6086 s \\
 \texttt{trajectory\_stability} & baseline (default 80-epoch checkpoint) & no projection & 0.0 \\
 \bottomrule
-\end{tabular}%
-}
-\end{table}
+\end{tabularx}
+\end{table*}
 
 \noindent
-These winners are numerically distinct: best \texttt{posterior\_quality} is 3.1364 with every\_5/Gauss-Newton, best \texttt{physical\_consistency} is 0.000359 with every\_step/Gauss-Newton, while the fastest and most stable policy is no projection (0.6086 s, trajectory\_stability \(=0.0\)). One global policy is therefore insufficient.
-In plain words: the stronger checkpoint is a larger model trained for 200 epochs; strong guidance means a high weight on matching observations; ``project every step'' and ``project every 5 steps'' define correction frequency; first-order and Gauss-Newton are two correction rules; ``no projection'' means no correction pass.
+The objective winners are clearly separated. The quality winner is \texttt{every\_5}/Gauss-Newton with \(\texttt{posterior\_quality}=3.1364\), while the consistency winner is \texttt{every\_step}/Gauss-Newton with \(\texttt{physical\_consistency}=0.000359\). This indicates that more frequent correction helps PDE consistency, but the best composite inverse score is reached with less frequent correction (every 5 steps), likely because it avoids over-correcting intermediate samples. Speed and robustness are dominated by the no-projection baseline (\(0.6086\) s, \(\texttt{trajectory\_stability}=0.0\)), so one single schedule/order is not optimal for all deployment goals.
+
+Here, ``larger 200-epoch checkpoint'' refers to the stronger \texttt{e200\_big} model, ``strong guidance'' refers to observation-guidance strength \(g=16\), the projection schedule sets correction frequency (\texttt{every\_step} or \texttt{every\_5}), and the projection order sets the correction rule (first-order or Gauss-Newton).
 \insightbox{\textbf{Key result.} Compared with the baseline best row (\(u\_error=1.9232\), \(v\_error=1.2944\), \(obs\_error=1.1504\), \(post\_q=4.3679\), runtime \(=0.7357\) s), the tuned setup (strong guidance + first-order projection every step) reaches \(u\_error=1.5050\), \(v\_error=0.9120\), \(obs\_error=0.8126\), \(post\_q=3.2295\), runtime \(=1.3741\) s. This corresponds to \(-21.75\%\), \(-29.54\%\), \(-29.36\%\), and \(-26.06\%\) improvements, with a \(+86.77\%\) runtime cost.}
 
 \subsection{Best inverse row vs baseline}
