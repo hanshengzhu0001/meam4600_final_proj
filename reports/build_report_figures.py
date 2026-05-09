@@ -266,7 +266,7 @@ def build_gain_cost_scorecard() -> None:
         ("posterior_quality", "post_q"),
         ("runtime", "runtime"),
     ]
-    labels = [v for _, v in metric_keys]
+    labels = ["u error", "v error", "obs error", "post q", "runtime"]
     pct_changes = []
     for key, _ in metric_keys:
         b = baseline[key]
@@ -274,12 +274,13 @@ def build_gain_cost_scorecard() -> None:
         pct_changes.append((t - b) / max(abs(b), 1e-12) * 100.0)
 
     colors = ["#2166ac", "#1f78b4", "#33a6cc", "#41b6c4", "#b2182b"]
-    fig, ax = plt.subplots(figsize=(8.4, 4.7))
+    fig, ax = plt.subplots(figsize=(8.6, 4.9))
     y = list(range(len(labels)))
     bars = ax.barh(y, pct_changes, color=colors, edgecolor="none", height=0.66)
     ax.axvline(0.0, color="#333333", linewidth=1.2)
     ax.set_yticks(y)
     ax.set_yticklabels(labels)
+    ax.tick_params(axis="y", pad=8)
     ax.invert_yaxis()
     ax.set_xlabel("Relative change vs baseline best row (%)")
     ax.set_title("Nonlinear Elliptic: Inverse-Metric Gains vs Runtime Cost", pad=10)
@@ -294,9 +295,29 @@ def build_gain_cost_scorecard() -> None:
         else:
             ax.text(x - 1.2, y_mid, text, va="center", ha="right", fontsize=9)
 
-    ax.text(-33.5, len(labels) - 0.35, "left = better for error metrics", fontsize=8.3, color="#35556f")
-    ax.text(37.0, len(labels) - 0.35, "right = higher runtime cost", fontsize=8.3, color="#7a2f2f")
-    fig.tight_layout()
+    ax.text(
+        0.01,
+        0.02,
+        "left side: lower error metrics",
+        transform=ax.transAxes,
+        fontsize=8.2,
+        color="#35556f",
+        ha="left",
+        va="bottom",
+        bbox={"facecolor": "white", "alpha": 0.7, "edgecolor": "none", "pad": 1.8},
+    )
+    ax.text(
+        0.99,
+        0.02,
+        "right side: higher runtime cost",
+        transform=ax.transAxes,
+        fontsize=8.2,
+        color="#7a2f2f",
+        ha="right",
+        va="bottom",
+        bbox={"facecolor": "white", "alpha": 0.7, "edgecolor": "none", "pad": 1.8},
+    )
+    fig.subplots_adjust(left=0.21, right=0.98, bottom=0.15, top=0.88)
     fig.savefig(FIGDIR / "nonlinear_gain_cost_scorecard.png", bbox_inches="tight")
     plt.close(fig)
 
