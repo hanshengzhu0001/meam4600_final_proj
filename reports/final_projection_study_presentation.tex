@@ -101,6 +101,7 @@ where \(S\) (schedule) controls \emph{when} projection is applied and \(q\in\{\t
 \caption{Workflow from PDE-family data to objective-wise projection-policy selection. The schedule/order sweep is isolated while keeping inverse setup and evaluation logic fixed.}
 \label{fig:workflow}
 \end{figure*}
+Figure~\ref{fig:workflow} provides the end-to-end study logic used in this report, from PDE-family data preparation to objective-wise projection-policy ranking.
 
 \section{Experimental Protocol}
 Baseline uses the default 80-epoch checkpoint and default model width/depth. Tuned runs use stronger training and guidance sweeps, with the strongest nonlinear analysis at \(\texttt{e200\_big}\) and \(g=16\).
@@ -148,7 +149,7 @@ Nonlinear main-study evaluation uses 128 posterior samples and 3 observation see
 \end{tabularx}
 \end{table*}
 
-The winners are numerically distinct rather than tied, which confirms that projection policy should be selected per objective. A single global policy is suboptimal when deployment priorities differ.
+The winners are numerically distinct rather than tied, which confirms that projection policy should be selected per objective. A single global policy is suboptimal when deployment priorities differ, consistent with the quality-runtime frontier in Figure~\ref{fig:tradeoff}.
 
 \subsection{Best inverse row versus baseline}
 \begin{table*}[t]
@@ -173,6 +174,7 @@ Relative change & \(-21.75\%\) & \(-29.54\%\) & \(-29.36\%\) & \(-26.06\%\) & \(
 \(\mathbf{u\_error}: 1.9232\rightarrow 1.5050\),\\
 \(\mathbf{v\_error}: 1.2944\rightarrow 0.9120\),\\
 \(\mathbf{obs\_error}: 1.1504\rightarrow 0.8126\).
+Figure~\ref{fig:gaincost} summarizes the same result as a metric-by-metric gain-cost scorecard.
 
 \begin{figure}[h]
 \centering
@@ -187,6 +189,7 @@ Relative change & \(-21.75\%\) & \(-29.54\%\) & \(-29.36\%\) & \(-26.06\%\) & \(
 \caption{Guidance sweep on nonlinear elliptic benchmark. Higher guidance consistently improves inverse reconstruction metrics.}
 \label{fig:guidance}
 \end{figure}
+The guidance sweep trend in Figure~\ref{fig:guidance} supports the choice of stronger guidance for inverse reconstruction quality.
 
 \begin{figure*}[t]
 \centering
@@ -194,6 +197,7 @@ Relative change & \(-21.75\%\) & \(-29.54\%\) & \(-29.36\%\) & \(-26.06\%\) & \(
 \caption{Quality-runtime frontier at \(g=16\). Marker shape indicates schedule, color indicates projection order.}
 \label{fig:tradeoff}
 \end{figure*}
+Figure~\ref{fig:tradeoff} shows that quality-optimal, physics-optimal, and runtime-optimal points are separated in policy space.
 
 \section{Results: Multi-Family Extension}
 The same evaluation protocol is applied to linear elliptic, heat equation, reaction-diffusion, Burgers (IC/BC), and a 1D Navier-Stokes surrogate.
@@ -223,7 +227,7 @@ Navier-Stokes 1D surrogate & \(-24.11\%\) \\
 \label{fig:crossfamily}
 \end{figure}
 
-\textbf{Interpretation.} Stronger guidance helps every tested family, with gains ranging from \(-9.03\%\) to \(-29.84\%\), supporting the robustness of guidance tuning beyond one PDE type.
+\textbf{Interpretation.} Stronger guidance helps every tested family, with gains ranging from \(-9.03\%\) to \(-29.84\%\), supporting the robustness of guidance tuning beyond one PDE type; Figure~\ref{fig:crossfamily} visualizes these cross-family gains.
 
 \section{Discussion}
 Three practical conclusions follow from the results.
