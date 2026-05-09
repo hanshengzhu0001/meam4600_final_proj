@@ -16,8 +16,11 @@ Nonlinear elliptic benchmark (`-Delta v + 50 v^3 = u`, `Nx=63`, periodic BC), in
 | Best `u_error` (tuned) | `1.5050` |
 | `u_error` improvement | `-21.75%` |
 | `v_error` improvement | `-29.54%` |
+| `obs_error` improvement | `-29.36%` |
+| `posterior_quality` improvement | `-26.06%` |
+| Runtime change | `+86.77%` (`0.7357 s -> 1.3741 s`) |
 | Best quality policy | `every_5 / gauss_newton` |
-| Best physics policy | `every_step / gauss_newton` |
+| Best physics policy | `every_step / gauss_newton` (`physical_consistency = 0.000359`) |
 | Fastest policy | `none / none` |
 
 ![Nonlinear quality-runtime tradeoff](reports/figures/nonlinear_tradeoff_scatter.png)
@@ -83,7 +86,8 @@ Best inverse row (`u_error`) vs baseline:
 | `posterior_quality` | `4.3679` | `3.2295` | `-26.06%` |
 | `runtime` | `0.7357 s` | `1.3741 s` | `+86.77%` |
 
-Interpretation: reconstruction quality improves materially, with a runtime tradeoff.
+Interpretation (stats-based): the tuned setup improves all inverse-quality metrics versus baseline (`u_error 1.9232 -> 1.5050`, `v_error 1.2944 -> 0.9120`, `obs_error 1.1504 -> 0.8126`, `posterior_quality 4.3679 -> 3.2295`), while runtime increases (`0.7357 s -> 1.3741 s`). This suggests stronger guidance plus every-step first-order projection improves reconstruction at the cost of compute.
+Physics interpretation: Gauss-Newton-heavy projection gives the strongest physical consistency (`0.000359`), likely because curvature-aware updates reduce nonlinear residual more aggressively per correction step.
 
 #### Multi-Family Extension Snapshot
 

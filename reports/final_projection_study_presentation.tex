@@ -168,15 +168,15 @@ The table below gives the best projection policy per objective under one fixed e
 \noindent
 These winners show why one global policy is insufficient: different objectives prefer different projection behavior.
 In plain words: the stronger checkpoint is a larger model trained for 200 epochs; strong guidance means a high weight on matching observations; ``project every step'' and ``project every 5 steps'' define correction frequency; first-order and Gauss-Newton are two correction rules; ``no projection'' means no correction pass.
-\insightbox{\textbf{Key result.} The best inverse-reconstruction setup uses the larger 200-epoch model, strong observation guidance (strength 16), and first-order projection at every sampling step. It reaches \(u\_error=1.5050\) and \(v\_error=0.9120\), improving baseline by \(\mathbf{21.75\%}\) and \(\mathbf{29.54\%}\).}
+\insightbox{\textbf{Key result.} Compared with the baseline best row (\(u\_error=1.9232\), \(v\_error=1.2944\), \(obs\_error=1.1504\), \(post\_q=4.3679\), runtime \(=0.7357\) s), the tuned setup (strong guidance + first-order projection every step) reaches \(u\_error=1.5050\), \(v\_error=0.9120\), \(obs\_error=0.8126\), \(post\_q=3.2295\), runtime \(=1.3741\) s. This corresponds to \(-21.75\%\), \(-29.54\%\), \(-29.36\%\), and \(-26.06\%\) improvements, with a \(+86.77\%\) runtime cost.}
 
 \subsection{Best inverse row vs baseline}
 To evaluate inverse recovery directly, the best-\(u\) row from baseline is compared against the best-\(u\) row after tuning.
-\begin{table}[h]
+\begin{table*}[t]
 \centering
-\small
+\normalsize
 \caption{Best inverse row comparison (\(128\times3\)).}
-\resizebox{\columnwidth}{!}{%
+\resizebox{0.93\textwidth}{!}{%
 \begin{tabular}{@{}lccccc@{}}
 \toprule
 \textbf{Setting} & \(\mathbf{u\_err}\) & \(\mathbf{v\_err}\) & \(\mathbf{obs\_err}\) & \(\mathbf{post\_q}\) & \(\mathbf{runtime}\) \\
@@ -188,9 +188,10 @@ Relative change & \(-21.75\%\) & \(-29.54\%\) & \(-29.36\%\) & \(-26.06\%\) & \(
 \bottomrule
 \end{tabular}%
 }
-\end{table}
+\end{table*}
 
 Best inverse rows are compared directly because \(u\_error\) is the primary metric for the inverse target. This row-to-row comparison shows substantial reconstruction gains and also quantifies the runtime cost of stronger correction.
+The best inverse-reconstruction setup is strong guidance with first-order projection at every step, possibly because frequent lightweight corrections keep each sample close to the observation-consistent region while avoiding aggressive per-step overcorrection.
 
 \begin{figure}[h]
 \centering
@@ -204,7 +205,7 @@ Best inverse rows are compared directly because \(u\_error\) is the primary metr
 \caption{Quality-runtime frontier at guidance strength 16. Color shows correction rule, marker shows projection schedule, and rings mark best inverse quality, fastest runtime, and best physics consistency.}
 \end{figure*}
 
-\insightbox{\textbf{Key nonlinear conclusion.} If the goal is best inverse reconstruction, project at every step with first-order correction. If the goal is best physics consistency, use Gauss-Newton-heavy correction. If the goal is speed or maximum stability, skip projection.}
+\insightbox{\textbf{Key nonlinear conclusion.} If the goal is best inverse reconstruction, project at every step with first-order correction. If the goal is best physics consistency, use Gauss-Newton-heavy correction, because curvature-aware updates reduce nonlinear PDE residual more strongly per correction; in this study, that policy achieved the best \(physical\_consistency=0.000359\). If the goal is speed or maximum stability, skip projection.}
 
 \section{Results: Multi-Family Extension}
 To test whether the nonlinear finding is specific to one PDE, the same pipeline is applied to linear elliptic, heat, reaction-diffusion, Burgers (IC/BC), and a 1D Navier-Stokes surrogate. The same evaluation logic is kept so cross-family conclusions remain comparable.
