@@ -1,73 +1,38 @@
 # MEAM 4600 Final Project: Posterior Projection for PDE Generative Sampling
 
-## Start Here (Professor/Reviewer Quick View)
+This repository studies a focused inverse-PDE question:
 
-This repository studies one focused question for inverse PDE posterior sampling:
+**Which projection schedule and projection order best trade off reconstruction quality, physical consistency, runtime, and trajectory stability?**
 
-**Which projection schedule/order is best for posterior quality, physical consistency, runtime, and trajectory stability?**
+## Quick Links
 
-### Results At a Glance (Front)
-
-Nonlinear elliptic benchmark (`-Delta v + 50 v^3 = u`, `Nx=63`, periodic BC), inverse target: recover full `u` from partial `v`.
-
-| Key result | Value |
-| --- | ---: |
-| Best `u_error` (baseline) | `1.9232` |
-| Best `u_error` (tuned) | `1.5050` |
-| `u_error` improvement | `-21.75%` |
-| `v_error` improvement | `-29.54%` |
-| `obs_error` improvement | `-29.36%` |
-| `posterior_quality` improvement | `-26.06%` |
-| Runtime change | `+86.77%` (`0.7357 s -> 1.3741 s`) |
-| Best quality policy | `every_5 / gauss_newton` |
-| Best physics policy | `every_step / gauss_newton` (`physical_consistency = 0.000359`) |
-| Fastest policy | `none / none` |
-
-![Nonlinear quality-runtime tradeoff](reports/figures/nonlinear_tradeoff_scatter.png)
-![Cross-family guidance benefit](reports/figures/cross_family_u_improvement.png)
-
-### Report-Only Submission Artifact
-
-- Canvas submission file: `reports/final_project_report.pdf`
-- This PDF is self-contained and includes:
-  - foundational-paper motivation,
-  - simplified method implementation details,
-  - scientific application results,
-  - successes/failures/lessons,
-  - attribution and reproducibility notes.
-
-### Course-Guideline Coverage (MEAM 4600)
-
-- Topic aligned with student focus: inverse PDE + physics-aware generative sampling.
-- Foundational papers used first: DiffusionPDE + PCFM.
-- Simplified method implemented: one flow-matching + projection schedule/order framework.
-- Scientific application: nonlinear elliptic inverse recovery (+ multi-family extension).
-- Findings documented with successes, failures, and lessons: see final report.
-- Attribution and reproducibility explicitly documented in report and repository.
-
-### Quick Links
-
-- Final report PDF: [`reports/final_project_report.pdf`](reports/final_project_report.pdf)
-- Final report LaTeX source: [`reports/final_project_report.tex`](reports/final_project_report.tex)
-- Nonlinear-elliptic study summary: [`reports/final_projection_study_summary.md`](reports/final_projection_study_summary.md)
+- Final report (PDF): [`reports/final_project_report.pdf`](reports/final_project_report.pdf)
+- Final report (LaTeX): [`reports/final_project_report.tex`](reports/final_project_report.tex)
+- Nonlinear benchmark summary: [`reports/final_projection_study_summary.md`](reports/final_projection_study_summary.md)
 - Multi-family extension summary: [`reports/multifamily_extension_summary.md`](reports/multifamily_extension_summary.md)
-- Main report figures:
-  - [`reports/figures/workflow_flowchart.png`](reports/figures/workflow_flowchart.png)
-  - [`reports/figures/nonlinear_guidance_trend.png`](reports/figures/nonlinear_guidance_trend.png)
-  - [`reports/figures/nonlinear_tradeoff_scatter.png`](reports/figures/nonlinear_tradeoff_scatter.png)
-  - [`reports/figures/cross_family_u_improvement.png`](reports/figures/cross_family_u_improvement.png)
 
-### Latest Tracked Results (as of 2026-05-07)
+## Benchmark and Inverse Setting
 
-#### Nonlinear Elliptic Main Benchmark
+- PDE: `-Delta v + 50 v^3 = u`
+- Grid: `Nx = 63`
+- Boundary condition: periodic
+- Inverse target: recover full `u`
+- Observations: partial `v`
+- Main evaluation protocol: `128` samples x `3` observation seeds
 
-PDE:
-```text
--Delta v + 50 v^3 = u,   Nx = 63,   periodic BC
-```
-Inverse setting: recover full `u` from partial observations of `v`.
+## Results Dashboard
 
-Objective-wise winners from full-table comparisons:
+### Table 1. Best inverse reconstruction vs baseline (nonlinear elliptic, full table)
+
+| Setting | `u_error` | `v_error` | `obs_error` | `posterior_quality` | `runtime` |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Baseline best row | `1.9232` | `1.2944` | `1.1504` | `4.3679` | `0.7357 s` |
+| Best tuned row (`e200_big`, `g=16`, `every_step/first_order`) | `1.5050` | `0.9120` | `0.8126` | `3.2295` | `1.3741 s` |
+| Relative change | `-21.75%` | `-29.54%` | `-29.36%` | `-26.06%` | `+86.77%` |
+
+Interpretation: stronger training plus strong observation guidance and every-step first-order projection improves all reconstruction-side metrics (`u_error`, `v_error`, `obs_error`, `posterior_quality`) while increasing runtime.
+
+### Table 2. Objective-wise winners (same evaluation grid)
 
 | Objective | Winning run | Best schedule/order | Value |
 | --- | --- | --- | ---: |
@@ -76,24 +41,11 @@ Objective-wise winners from full-table comparisons:
 | `runtime` | baseline | `none / none` | `0.6086 s` |
 | `trajectory_stability` | baseline | `none / none` | `0.0` |
 
-Best inverse row (`u_error`) vs baseline:
+Interpretation: winners are objective-dependent. `every_5/gauss_newton` gives the best composite posterior score, `every_step/gauss_newton` gives the strongest physics consistency, and no-projection remains fastest and most stable.
 
-| Metric | Baseline best row | Best tuned row (`g=16`, `every_step/first_order`) | Relative change |
-| --- | ---: | ---: | ---: |
-| `u_error` | `1.9232` | `1.5050` | `-21.75%` |
-| `v_error` | `1.2944` | `0.9120` | `-29.54%` |
-| `obs_error` | `1.1504` | `0.8126` | `-29.36%` |
-| `posterior_quality` | `4.3679` | `3.2295` | `-26.06%` |
-| `runtime` | `0.7357 s` | `1.3741 s` | `+86.77%` |
+### Table 3. Cross-family guidance benefit (`g=0.25 -> g=16`, best-row `u_error`)
 
-Interpretation (stats-based): the tuned setup improves all inverse-quality metrics versus baseline (`u_error 1.9232 -> 1.5050`, `v_error 1.2944 -> 0.9120`, `obs_error 1.1504 -> 0.8126`, `posterior_quality 4.3679 -> 3.2295`), while runtime increases (`0.7357 s -> 1.3741 s`). This suggests stronger guidance plus every-step first-order projection improves reconstruction at the cost of compute.
-Physics interpretation: Gauss-Newton-heavy projection gives the strongest physical consistency (`0.000359`), likely because curvature-aware updates reduce nonlinear residual more aggressively per correction step.
-
-#### Multi-Family Extension Snapshot
-
-Best-row `u_error` reduction when increasing guidance from `g=0.25` to `g=16`:
-
-| Family | `u_error` reduction |
+| PDE family | `u_error` change |
 | --- | ---: |
 | Linear elliptic | `-18.73%` |
 | Heat equation | `-25.20%` |
@@ -102,9 +54,13 @@ Best-row `u_error` reduction when increasing guidance from `g=0.25` to `g=16`:
 | Burgers BC | `-9.03%` |
 | Navier-Stokes 1D surrogate | `-24.11%` |
 
-Cross-family conclusion (stats-based): stronger observation guidance helps inverse recovery in all tested families, with \(u\_error\) reductions of `-18.73%`, `-25.20%`, `-29.84%`, `-26.12%`, `-9.03%`, and `-24.11%` (range: `-9.03%` to `-29.84%`); best schedule/order remains objective-dependent.
+Interpretation: stronger observation guidance consistently helps inverse recovery across all tested families (range: `-9.03%` to `-29.84%`).
 
-### Reproducibility (Minimal)
+| Nonlinear quality-runtime frontier | Cross-family guidance gains |
+| --- | --- |
+| ![Nonlinear tradeoff](reports/figures/nonlinear_tradeoff_scatter.png) | ![Cross-family gains](reports/figures/cross_family_u_improvement.png) |
+
+## Reproducibility (Minimal)
 
 ```bash
 python -m venv .venv
@@ -118,30 +74,41 @@ PYTHONPATH=src python -m unittest discover -s tests
 
 ```bash
 PYTHONPATH=src python -m chonkdiff.generate_dataset --config configs/chonkdiff_elliptic.yaml
-PYTHONPATH=src python -m posterior_projection.train --config configs/posterior_projection.yaml
+```
+
+```bash
+PYTHONPATH=src python -m posterior_projection.train \
+  --config configs/posterior_projection.yaml \
+  --checkpoint-dir outputs/posterior_projection_baseline
+```
+
+```bash
 PYTHONPATH=src python -m posterior_projection.evaluate \
   --checkpoint outputs/posterior_projection_baseline/best.pt \
-  --num-samples 128 --num-observation-seeds 3 \
+  --num-samples 128 \
+  --num-observation-seeds 3 \
   --json-out outputs/posterior_projection_baseline/eval_full.json \
   --csv-out outputs/posterior_projection_baseline/eval_full.csv
 ```
 
-### Quick Verification Checklist
+## Data and Result Tracking
 
-- Tests pass (`24/24`): `PYTHONPATH=src python -m unittest discover -s tests`
-- Final report exists: `reports/final_project_report.pdf`
-- Core nonlinear summary exists: `reports/final_projection_study_summary.md`
-- Multi-family summary exists: `reports/multifamily_extension_summary.md`
-
-### Data/Results Tracking Policy
-
-- Tracked, reviewer-facing summaries live in `reports/*.md` and `reports/final_project_report.pdf`.
-- Large run artifacts (JSON/CSV/checkpoints) are generated under `outputs/` and are usually gitignored due size.
-- The key numerical conclusions are mirrored in tables above and in:
+- Reviewer-facing artifacts are tracked in `reports/`.
+- Large run artifacts are generated under `outputs/` (checkpoints, JSON, CSV).
+- Key numerical conclusions are mirrored in:
   - `reports/final_projection_study_summary.md`
   - `reports/multifamily_extension_summary.md`
 
-## Legacy Technical Notes
+## References and Attribution
+
+- Physics-Constrained Flow Matching (PCFM):
+  - local copy: [`final_project/references/papers/pcfm.pdf`](final_project/references/papers/pcfm.pdf)
+  - project page: https://caipengfei.me/pcfm
+- DiffusionPDE:
+  - local copy: [`final_project/references/papers/diffusionpde.pdf`](final_project/references/papers/diffusionpde.pdf)
+  - paper page: https://proceedings.neurips.cc/paper_files/paper/2024/hash/eb3878c1dcbfff9ee95d5d033e5f5942-Abstract-Conference.html
+
+## Technical Appendix (Detailed Notes)
 
 This repository is the standalone final-project codebase for studying one research question:
 
